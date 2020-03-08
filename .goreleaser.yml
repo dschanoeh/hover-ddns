@@ -18,6 +18,8 @@ archives:
     windows: Windows
     386: i386
     amd64: x86_64
+  files:
+    - example.yaml
 checksum:
   name_template: 'checksums.txt'
 snapshot:
@@ -28,3 +30,7 @@ changelog:
     exclude:
     - '^docs:'
     - '^test:'
+release:
+  github:
+    owner: dschanoeh
+    name: hover-ddns
