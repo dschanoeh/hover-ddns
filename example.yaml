@@ -1,0 +1,7 @@
+username: "your Hover username"
+password: "your Hover password"
+# Set the relative(!) hostname to be updated
+hostname: "host"
+domain_name: "example.com"
+# Set to true to update even if the IP already is up to date
+force_update: false
