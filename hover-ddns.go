@@ -59,12 +59,15 @@ type CreateRecord struct {
 
 func main() {
 	var verbose = flag.Bool("verbose", false, "Turns on verbose information on the update process. Otherwise, only errors cause output.")
+	var debug = flag.Bool("debug", false, "Turns on debug information")
 	var configFile = flag.String("config", "", "Config file")
 
 	flag.Parse()
 
 	if *verbose {
 		log.SetLevel(log.InfoLevel)
+	} else if *debug {
+		log.SetLevel(log.DebugLevel)
 	} else {
 		log.SetLevel(log.ErrorLevel)
 	}
