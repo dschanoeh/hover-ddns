@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
@@ -71,7 +72,7 @@ func main() {
 	if *configFile == "" {
 		log.Error("Please provide a config file to read")
 		flag.Usage()
-		return
+		os.Exit(1)
 	}
 
 	config := _Config{}
@@ -79,7 +80,7 @@ func main() {
 	err := loadConfig(*configFile, &config)
 	if err != nil {
 		log.Error("Could not load config file: ", err)
-		return
+		os.Exit(1)
 	}
 
 	log.Info("Getting public IP...")
@@ -87,7 +88,7 @@ func main() {
 
 	if err != nil {
 		log.Error("Failed to get public ip", err)
-		return
+		os.Exit(1)
 	}
 
 	log.Info("Received public IP " + ip)
@@ -97,14 +98,14 @@ func main() {
 
 	if err != nil {
 		log.Error("Failed to resolve the current ip: ", err)
-		return
+		os.Exit(1)
 	}
 	log.Info("Received current IP " + currentIP)
 
 	if currentIP == ip {
 		if !config.ForceUpdate {
 			log.Info("DNS entry already up to date - nothing to do.")
-			return
+			os.Exit(0)
 		} else {
 			log.Info("DNS entry already up to date, but update forced...")
 		}
@@ -118,7 +119,7 @@ func main() {
 	sessionCookie, authCookie, err := getHoverAuthCookie(client, config.Username, config.Password)
 	if err != nil {
 		log.Error("Failed to get auth cookie", err)
-		return
+		os.Exit(1)
 	}
 
 	log.Debug("AuthCookie [" + authCookie.Name + "]: " + authCookie.Value)
@@ -127,14 +128,14 @@ func main() {
 	domainID, err := getDomainID(client, sessionCookie, authCookie, config.DomainName)
 	if err != nil {
 		log.Error("Failed to get domain ID: ", err)
-		return
+		os.Exit(1)
 	}
 	log.Info("Found domain ID: " + domainID)
 
 	recordID, err := getRecordID(client, sessionCookie, authCookie, domainID, config.Hostname)
 	if err != nil {
 		log.Error("Error getting record ID: ", err)
-		return
+		os.Exit(1)
 	}
 
 	// Record exists, so we need to delete it before creating a new one
@@ -144,7 +145,7 @@ func main() {
 		err = deleteRecord(client, sessionCookie, authCookie, recordID)
 		if err != nil {
 			log.Error("Was not able to delete existing record: ", err)
-			return
+			os.Exit(1)
 		}
 	}
 
@@ -153,8 +154,10 @@ func main() {
 	err = createRecord(client, sessionCookie, authCookie, domainID, config.Hostname, ip)
 	if err != nil {
 		log.Error("Was not able to create new record: ", err)
-		return
+		os.Exit(1)
 	}
+
+	os.Exit(0)
 }
 
 func loadConfig(filename string, config *_Config) error {
