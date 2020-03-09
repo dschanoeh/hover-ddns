@@ -21,4 +21,28 @@ Create a config file with your credentials and domain info (see the provided exa
 
     $ hover-ddns --config config.yaml
 
+Installation
+------------
+This is an example setup on Linux using the provided systemd service and timer.
+
+Download the latest release from https://github.com/dschanoeh/hover-ddns/releases.
+
+    $ tar xvf [downloaded_archive.tar.gz]
+    $ sudo mv hover-ddns /usr/local/bin
+    $ vim example.yaml
+
+    [Add your credentials and domain info]
+
+    $ sudo mv example.yaml /etc/hover-ddns.yaml
+
+    # Make sure only root can read the file with sensitive information
+    $ sudo chown root:root /etc/hover-ddns.yaml
+    $ sudo chmod 600 /etc/hover-ddns.yaml
+
+    $ sudo mv hover-ddns.service /etc/systemd/system/
+    $ sudo mv hover-ddns.timer /etc/systemd/system/
+    $ sudo systemctl daemon-reload
+    $ sudo systemctl enable hover-ddns.timer
+    $ sudo systemctl start hover-ddns.timer
+
 
