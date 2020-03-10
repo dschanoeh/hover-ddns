@@ -61,6 +61,7 @@ func main() {
 	var verbose = flag.Bool("verbose", false, "Turns on verbose information on the update process. Otherwise, only errors cause output.")
 	var debug = flag.Bool("debug", false, "Turns on debug information")
 	var configFile = flag.String("config", "", "Config file")
+	var manualIPAddress = flag.String("ip-address", "", "Specify the IP address to be submitted instead of looking it up")
 
 	flag.Parse()
 
@@ -86,15 +87,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info("Getting public IP...")
-	ip, err := getPublicIP()
+	ip := ""
+	if *manualIPAddress == "" {
+		log.Info("Getting public IP...")
+		ip, err = getPublicIP()
 
-	if err != nil {
-		log.Error("Failed to get public ip", err)
-		os.Exit(1)
+		if err != nil {
+			log.Error("Failed to get public ip", err)
+			os.Exit(1)
+		}
+
+		log.Info("Received public IP " + ip)
+	} else {
+		ip = *manualIPAddress
+		log.Info("Using manually provied public IP " + ip)
 	}
-
-	log.Info("Received public IP " + ip)
 
 	log.Info("Resolving current IP...")
 	currentIP, err := resolveCurrentIP(config.Hostname + "." + config.DomainName)
