@@ -128,7 +128,7 @@ func main() {
 
 	sessionCookie, authCookie, err := getHoverAuthCookie(client, config.Username, config.Password)
 	if err != nil {
-		log.Error("Failed to get auth cookie", err)
+		log.Error("Failed to get auth cookie: ", err)
 		os.Exit(1)
 	}
 
@@ -253,7 +253,7 @@ func getHoverAuthCookie(client *http.Client, username string, password string) (
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := ioutil.ReadAll(resp.Body)
-		log.Info(string(bodyBytes))
+		log.Debug(string(bodyBytes))
 		return sessionCookie, authCookie, errors.New("Received status code " + strconv.Itoa(resp.StatusCode))
 	}
 	if err != nil {
