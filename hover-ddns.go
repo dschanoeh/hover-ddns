@@ -93,7 +93,7 @@ func main() {
 		ip, err = getPublicIP()
 
 		if err != nil {
-			log.Error("Failed to get public ip", err)
+			log.Error("Failed to get public ip: ", err)
 			os.Exit(1)
 		}
 
@@ -101,6 +101,11 @@ func main() {
 	} else {
 		ip = *manualIPAddress
 		log.Info("Using manually provied public IP " + ip)
+
+		if !isValidIP(ip) {
+			log.Error("Provided IP '" + ip + "' is not a valid IP address.")
+			os.Exit(1)
+		}
 	}
 
 	log.Info("Resolving current IP...")
@@ -194,12 +199,22 @@ func getPublicIP() (string, error) {
 
 	defer resp.Body.Close()
 
-	ip, err := ioutil.ReadAll(resp.Body)
+	ipBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
 
-	return string(ip), nil
+	ip := string(ipBytes)
+
+	if !isValidIP(ip) {
+		return "", errors.New("'" + ip + "' is not a valid IP address.")
+	}
+
+	return ip, nil
+}
+
+func isValidIP(host string) bool {
+	return net.ParseIP(host) != nil
 }
 
 func resolveCurrentIP(hostname string) (string, error) {
