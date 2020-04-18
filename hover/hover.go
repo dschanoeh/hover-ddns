@@ -163,11 +163,11 @@ func getDomainID(client *http.Client, sessionCookie http.Cookie, authCookie http
 
 	resp, err := client.Do(req)
 
-	if resp.StatusCode != http.StatusOK {
-		return "", errors.New("Received status code " + strconv.Itoa(resp.StatusCode))
-	}
 	if err != nil {
 		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.New("Received status code " + strconv.Itoa(resp.StatusCode))
 	}
 
 	defer resp.Body.Close()
