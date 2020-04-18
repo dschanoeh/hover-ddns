@@ -46,6 +46,7 @@ type CreateRecord struct {
 	TTL     int    `json:"ttl"`
 }
 
+// Update tries to update the DNS record for hostName with the provided IP
 func Update(user string, password string, domainName string, hostName string, ip net.IP) error {
 	log.Info("Getting Hover auth cookie...")
 	client := &http.Client{}
