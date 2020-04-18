@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/dschanoeh/hover-ddns/publicip"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
@@ -88,23 +89,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	ip := ""
+	var resolver publicip.Resolver
+	resolver = publicip.IpifyResolver{}
+
+	ip := net.IP{}
 	if *manualIPAddress == "" {
 		log.Info("Getting public IP...")
-		ip, err = getPublicIP()
+		ip, err = resolver.GetPublicIP()
 
 		if err != nil {
 			log.Error("Failed to get public ip: ", err)
 			os.Exit(1)
 		}
 
-		log.Info("Received public IP " + ip)
+		log.Info("Received public IP " + ip.String())
 	} else {
-		ip = *manualIPAddress
-		log.Info("Using manually provied public IP " + ip)
+		ip = net.ParseIP(*manualIPAddress)
+		log.Info("Using manually provied public IP " + *manualIPAddress)
 
-		if !isValidIP(ip) {
-			log.Error("Provided IP '" + ip + "' is not a valid IP address.")
+		if ip == nil {
+			log.Error("Provided IP '" + *manualIPAddress + "' is not a valid IP address.")
 			os.Exit(1)
 		}
 	}
@@ -116,9 +120,9 @@ func main() {
 		log.Error("Failed to resolve the current ip: ", err)
 		os.Exit(1)
 	}
-	log.Info("Received current IP " + currentIP)
+	log.Info("Received current IP " + currentIP.String())
 
-	if currentIP == ip {
+	if currentIP.Equal(ip) {
 		if !config.ForceUpdate {
 			log.Info("DNS entry already up to date - nothing to do.")
 			os.Exit(0)
@@ -136,7 +140,7 @@ func main() {
 	os.Exit(0)
 }
 
-func hoverUpdate(config _Config, ip string) {
+func hoverUpdate(config _Config, ip net.IP) {
 	log.Info("Getting Hover auth cookie...")
 	client := &http.Client{}
 
@@ -175,7 +179,7 @@ func hoverUpdate(config _Config, ip string) {
 
 	// Create new record
 	log.Info("Creating new record...")
-	err = createRecord(client, sessionCookie, authCookie, domainID, config.Hostname, ip)
+	err = createRecord(client, sessionCookie, authCookie, domainID, config.Hostname, ip.String())
 	if err != nil {
 		log.Error("Was not able to create new record: ", err)
 		os.Exit(1)
@@ -196,45 +200,17 @@ func loadConfig(filename string, config *_Config) error {
 	return nil
 }
 
-func getPublicIP() (string, error) {
-	url := "https://api.ipify.org?format=text"
-
-	resp, err := http.Get(url)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		return "", err
-	}
-
-	defer resp.Body.Close()
-
-	ipBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	ip := string(ipBytes)
-
-	if !isValidIP(ip) {
-		return "", errors.New("'" + ip + "' is not a valid IP address.")
-	}
-
-	return ip, nil
-}
-
-func isValidIP(host string) bool {
-	return net.ParseIP(host) != nil
-}
-
-func resolveCurrentIP(hostname string) (string, error) {
+func resolveCurrentIP(hostname string) (net.IP, error) {
 	ips, err := net.LookupIP(hostname)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if len(ips) > 1 {
 		log.Warn("Received more than one IP address. Using the first one...")
 	}
 
-	return ips[0].String(), nil
+	return ips[0], nil
 }
 
 func getHoverAuthCookie(client *http.Client, username string, password string) (http.Cookie, http.Cookie, error) {
