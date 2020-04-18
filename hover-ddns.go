@@ -60,6 +60,7 @@ type CreateRecord struct {
 func main() {
 	var verbose = flag.Bool("verbose", false, "Turns on verbose information on the update process. Otherwise, only errors cause output.")
 	var debug = flag.Bool("debug", false, "Turns on debug information")
+	var dryRun = flag.Bool("dry-run", false, "Perform lookups but don't actually update the DNS info")
 	var configFile = flag.String("config", "", "Config file")
 	var manualIPAddress = flag.String("ip-address", "", "Specify the IP address to be submitted instead of looking it up")
 
@@ -128,6 +129,14 @@ func main() {
 		log.Info("IPs differ - update required...")
 	}
 
+	if !*dryRun {
+		hoverUpdate(config, ip)
+	}
+
+	os.Exit(0)
+}
+
+func hoverUpdate(config _Config, ip string) {
 	log.Info("Getting Hover auth cookie...")
 	client := &http.Client{}
 
@@ -171,8 +180,6 @@ func main() {
 		log.Error("Was not able to create new record: ", err)
 		os.Exit(1)
 	}
-
-	os.Exit(0)
 }
 
 func loadConfig(filename string, config *_Config) error {
