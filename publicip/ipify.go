@@ -11,12 +11,17 @@ const (
 	url = "https://api.ipify.org?format=text"
 )
 
-// IpifyResolver is a public IP resolver using the ipify.org API
-type IpifyResolver struct {
+// IpifyLookupProvider is a public IP lookup provider using the ipify.org API
+type IpifyLookupProvider struct {
+}
+
+// NewIpifyLookupProvider creates a new Ipify lookup provider
+func NewIpifyLookupProvider() *IpifyLookupProvider {
+	return &IpifyLookupProvider{}
 }
 
 // GetPublicIP returns the current public IP or nil if an error occured
-func (r IpifyResolver) GetPublicIP() (net.IP, error) {
+func (r *IpifyLookupProvider) GetPublicIP() (net.IP, error) {
 	ip := net.IP{}
 	resp, err := http.Get(url)
 	if err != nil {

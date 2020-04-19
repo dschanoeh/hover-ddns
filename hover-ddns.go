@@ -12,12 +12,13 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type _Config struct {
-	Username    string
-	Password    string
-	Hostname    string
-	DomainName  string `yaml:"domain_name"`
-	ForceUpdate bool   `yaml:"force_update"`
+type Config struct {
+	Username         string
+	Password         string
+	Hostname         string
+	DomainName       string                        `yaml:"domain_name"`
+	ForceUpdate      bool                          `yaml:"force_update"`
+	PublicIPProvider publicip.LookupProviderConfig `yaml:"public_ip_provider"`
 }
 
 func main() {
@@ -43,7 +44,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	config := _Config{}
+	config := Config{}
 
 	err := loadConfig(*configFile, &config)
 	if err != nil {
@@ -51,13 +52,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	var resolver publicip.Resolver
-	resolver = publicip.IpifyResolver{}
+	var provider publicip.LookupProvider
+	provider, err = publicip.NewLookupProvider(&config.PublicIPProvider)
+	if err != nil {
+		log.Error("Could not configure public ip provider: ", err)
+		os.Exit(1)
+	}
 
 	ip := net.IP{}
 	if *manualIPAddress == "" {
 		log.Info("Getting public IP...")
-		ip, err = resolver.GetPublicIP()
+		ip, err = provider.GetPublicIP()
 
 		if err != nil {
 			log.Error("Failed to get public ip: ", err)
@@ -105,7 +110,7 @@ func main() {
 	os.Exit(0)
 }
 
-func loadConfig(filename string, config *_Config) error {
+func loadConfig(filename string, config *Config) error {
 	yamlFile, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return err
