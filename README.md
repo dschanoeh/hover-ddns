@@ -1,5 +1,4 @@
-hover-ddns
-==========
+# hover-ddns
 
 [![Travis (master)](https://travis-ci.com/dschanoeh/hover-ddns.svg?branch=master)](https://travis-ci.com/dschanoeh/hover-ddns)
 
@@ -15,14 +14,21 @@ It will:
 
 It doesn't do anything beyond that and if you need more features or different services, I suggest to look at tools like [lexicon](https://github.com/AnalogJ/lexicon).
 
-Usage
------
+## Features
+
+* Supports public IP lookup by:
+  * Using the ipify API
+  * Issuing OpenDNS DNS queries
+  * Extracting the address from a lokal network interface
+
+## Usage
+
 Create a config file with your credentials and domain info (see the provided example.yaml) and then run hover-ddns:
 
     $ hover-ddns --config config.yaml
 
-Installation
-------------
+## Installation
+
 This is an example setup on Linux using the provided systemd service and timer.
 
 Download the latest release from https://github.com/dschanoeh/hover-ddns/releases.
@@ -44,5 +50,3 @@ Download the latest release from https://github.com/dschanoeh/hover-ddns/release
     $ sudo systemctl daemon-reload
     $ sudo systemctl enable hover-ddns.timer
     $ sudo systemctl start hover-ddns.timer
-
-
