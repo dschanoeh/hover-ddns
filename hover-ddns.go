@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -21,14 +22,27 @@ type Config struct {
 	PublicIPProvider publicip.LookupProviderConfig `yaml:"public_ip_provider"`
 }
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+	builtBy = "unknown"
+)
+
 func main() {
 	var verbose = flag.Bool("verbose", false, "Turns on verbose information on the update process. Otherwise, only errors cause output.")
 	var debug = flag.Bool("debug", false, "Turns on debug information")
 	var dryRun = flag.Bool("dry-run", false, "Perform lookups but don't actually update the DNS info")
 	var configFile = flag.String("config", "", "Config file")
 	var manualIPAddress = flag.String("ip-address", "", "Specify the IP address to be submitted instead of looking it up")
+	var versionFlag = flag.Bool("version", false, "Prints version information of the hover-ddns binary")
 
 	flag.Parse()
+
+	if *versionFlag {
+		fmt.Printf("hover-ddns version %s, commit %s, built at %s by %s\n", version, commit, date, builtBy)
+		os.Exit(0)
+	}
 
 	if *verbose {
 		log.SetLevel(log.InfoLevel)
