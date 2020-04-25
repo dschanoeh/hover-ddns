@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/dschanoeh/hover-ddns/hover"
 	"github.com/dschanoeh/hover-ddns/publicip"
+	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
@@ -17,9 +19,12 @@ type Config struct {
 	Username         string
 	Password         string
 	Hostname         string
+	DisableV4        bool                          `yaml:"disable_ipv4"`
+	DisableV6        bool                          `yaml:"disable_ipv6"`
 	DomainName       string                        `yaml:"domain_name"`
 	ForceUpdate      bool                          `yaml:"force_update"`
 	PublicIPProvider publicip.LookupProviderConfig `yaml:"public_ip_provider"`
+	DNSServer        string                        `yaml:"dns_server"`
 }
 
 var (
@@ -30,12 +35,15 @@ var (
 )
 
 func main() {
+	config := Config{}
 	var verbose = flag.Bool("verbose", false, "Turns on verbose information on the update process. Otherwise, only errors cause output.")
 	var debug = flag.Bool("debug", false, "Turns on debug information")
 	var dryRun = flag.Bool("dry-run", false, "Perform lookups but don't actually update the DNS info")
 	var configFile = flag.String("config", "", "Config file")
-	var manualIPAddress = flag.String("ip-address", "", "Specify the IP address to be submitted instead of looking it up")
+	var manualV4 = flag.String("manual-ipv4", "", "Specify the IP address to be submitted instead of looking it up")
+	var manualV6 = flag.String("manual-ipv6", "", "Specify the IP address to be submitted instead of looking it up")
 	var versionFlag = flag.Bool("version", false, "Prints version information of the hover-ddns binary")
+	var onlyValidateConfig = flag.String("validate-config", "", "Only check if the provided config file is valid")
 
 	flag.Parse()
 
@@ -52,17 +60,30 @@ func main() {
 		log.SetLevel(log.ErrorLevel)
 	}
 
+	if *onlyValidateConfig != "" {
+		err := loadConfig(*onlyValidateConfig, &config)
+		if err != nil {
+			log.Error("Could not load config file: ", err)
+			os.Exit(1)
+		}
+		if !validateConfig(&config) {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	if *configFile == "" {
 		log.Error("Please provide a config file to read")
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	config := Config{}
-
 	err := loadConfig(*configFile, &config)
 	if err != nil {
 		log.Error("Could not load config file: ", err)
+		os.Exit(1)
+	}
+	if !validateConfig(&config) {
 		os.Exit(1)
 	}
 
@@ -73,49 +94,100 @@ func main() {
 		os.Exit(1)
 	}
 
-	ip := net.IP{}
-	if *manualIPAddress == "" {
-		log.Info("Getting public IP...")
-		ip, err = provider.GetPublicIP()
+	publicV4 := net.IP{}
+	publicV6 := net.IP{}
 
-		if err != nil {
-			log.Error("Failed to get public ip: ", err)
-			os.Exit(1)
-		}
+	if !config.DisableV4 {
+		if *manualV4 == "" {
+			log.Info("Getting public IPv4...")
+			publicV4, err = provider.GetPublicIP()
 
-		log.Info("Received public IP " + ip.String())
-	} else {
-		ip = net.ParseIP(*manualIPAddress)
-		log.Info("Using manually provied public IP " + *manualIPAddress)
+			if err != nil {
+				log.Warn("Failed to get public ip: ", err)
+				publicV4 = nil
+			}
 
-		if ip == nil {
-			log.Error("Provided IP '" + *manualIPAddress + "' is not a valid IP address.")
-			os.Exit(1)
-		}
-	}
-
-	log.Info("Resolving current IP...")
-	currentIP, err := resolveCurrentIP(config.Hostname + "." + config.DomainName)
-
-	if err != nil {
-		log.Error("Failed to resolve the current ip: ", err)
-		os.Exit(1)
-	}
-	log.Info("Received current IP " + currentIP.String())
-
-	if currentIP.Equal(ip) {
-		if !config.ForceUpdate {
-			log.Info("DNS entry already up to date - nothing to do.")
-			os.Exit(0)
+			log.Info("Received public IP " + publicV4.String())
 		} else {
-			log.Info("DNS entry already up to date, but update forced...")
+			publicV4 = net.ParseIP(*manualV4)
+			log.Info("Using manually provied public IPv4 " + *manualV4)
+
+			if publicV4 == nil {
+				log.Error("Provided IP '" + *manualV4 + "' is not a valid IP address.")
+				os.Exit(1)
+			}
+		}
+
+		log.Info("Resolving current IPv4...")
+		currentV4, err := performDNSLookup(config.Hostname+"."+config.DomainName, config.DNSServer, dns.TypeA)
+		if err != nil {
+			log.Warn("Failed to resolve the current IPv4: ", err)
+		}
+		if currentV4 != nil {
+			log.Info("Received current IPv4 " + currentV4.String())
+		}
+
+		if currentV4 != nil && currentV4.Equal(publicV4) {
+			if !config.ForceUpdate {
+				log.Info("v4 DNS entry already up to date - nothing to do.")
+				publicV4 = nil
+			} else {
+				log.Info("v4 DNS entry already up to date, but update forced...")
+			}
+		} else {
+			log.Info("v4 IPs differ - update required...")
 		}
 	} else {
-		log.Info("IPs differ - update required...")
+		publicV4 = nil
 	}
 
-	if !*dryRun {
-		err = hover.Update(config.Username, config.Password, config.DomainName, config.Hostname, ip)
+	if !config.DisableV6 {
+		if *manualV6 == "" {
+			log.Info("Getting public IPv6...")
+			publicV6, err = provider.GetPublicIPv6()
+
+			if err != nil {
+				log.Warn("Failed to get public ip: ", err)
+				publicV6 = nil
+			}
+
+			log.Info("Received public IP " + publicV6.String())
+		} else {
+			publicV6 = net.ParseIP(*manualV6)
+			log.Info("Using manually provied public IPv6 " + *manualV6)
+
+			if publicV6 == nil {
+				log.Error("Provided IP '" + *manualV6 + "' is not a valid IP address.")
+				os.Exit(1)
+			}
+		}
+
+		log.Info("Resolving current IPv6...")
+		currentV6, err := performDNSLookup(config.Hostname+"."+config.DomainName, config.DNSServer, dns.TypeAAAA)
+		if err != nil {
+			log.Warn("Failed to resolve the current IPv6: ", err)
+		}
+		if currentV6 != nil {
+			log.Info("Received current IPv6 " + currentV6.String())
+		}
+
+		if currentV6 != nil && currentV6.Equal(publicV6) {
+			if !config.ForceUpdate {
+				log.Info("v6 DNS entry already up to date - nothing to do.")
+				publicV6 = nil
+			} else {
+				log.Info("v6 DNS entry already up to date, but update forced...")
+			}
+		} else {
+			log.Info("v6 IPs differ - update required...")
+		}
+	} else {
+		publicV6 = nil
+	}
+
+	// No update if we are doing a dry-run or both entries were marked as irrelevant
+	if !*dryRun && !(publicV4 == nil && publicV6 == nil) {
+		err = hover.Update(config.Username, config.Password, config.DomainName, config.Hostname, publicV4, publicV6)
 		if err != nil {
 			os.Exit(1)
 		}
@@ -138,15 +210,76 @@ func loadConfig(filename string, config *Config) error {
 	return nil
 }
 
-func resolveCurrentIP(hostname string) (net.IP, error) {
-	ips, err := net.LookupIP(hostname)
-	if err != nil {
+func validateConfig(config *Config) bool {
+	if config.DNSServer == "" {
+		log.Error("Invalid config: A DNS server must be provided")
+		return false
+	}
+
+	if config.DomainName == "" {
+		log.Error("Invalid config: A domain name must be provided")
+		return false
+	}
+
+	if config.Hostname == "" {
+		log.Error("Invalid config: A host name must be provided")
+		return false
+	}
+
+	if config.Password == "" {
+		log.Error("Invalid config: A password must be provided")
+		return false
+	}
+
+	if config.Username == "" {
+		log.Error("Invalid config: A user name must be provided")
+		return false
+	}
+
+	if config.PublicIPProvider.Service == "" {
+		log.Error("Invalid config: A public IP service must be selected")
+		return false
+	}
+
+	if config.PublicIPProvider.Service == "local-interface" && config.PublicIPProvider.InterfaceName == "" {
+		log.Error("Invalid config: When selecting the local-interface provider, an interface name must be provided")
+		return false
+	}
+
+	return true
+}
+
+func performDNSLookup(hostname string, dnsServer string, dnsType uint16) (net.IP, error) {
+	client := dns.Client{}
+	message := dns.Msg{}
+	message.SetQuestion(hostname+".", dnsType)
+
+	res, _, err := client.Exchange(&message, dnsServer)
+	if res == nil {
 		return nil, err
 	}
 
-	if len(ips) > 1 {
-		log.Warn("Received more than one IP address. Using the first one...")
+	if res.Rcode != dns.RcodeSuccess {
+		return nil, errors.New("Invalid DNS answer")
 	}
 
-	return ips[0], nil
+	if len(res.Answer) == 0 {
+		return nil, errors.New("Didn't get any results for the query")
+	}
+
+	if len(res.Answer) > 1 {
+		log.Warn("Received more than one IPs - just returning the first one")
+	}
+
+	record := res.Answer[0]
+	switch dnsType {
+	case dns.TypeA:
+		aRecord := record.(*dns.A)
+		return aRecord.A, nil
+	case dns.TypeAAAA:
+		aRecord := record.(*dns.AAAA)
+		return aRecord.AAAA, nil
+	}
+
+	return nil, errors.New("No valid record type selected")
 }

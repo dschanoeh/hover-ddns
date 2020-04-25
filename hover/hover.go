@@ -46,8 +46,9 @@ type CreateRecord struct {
 	TTL     int    `json:"ttl"`
 }
 
-// Update tries to update the DNS record for hostName with the provided IP
-func Update(user string, password string, domainName string, hostName string, ip net.IP) error {
+// Update tries to update the DNS record for hostName with the provided IP(s).
+// Provide nil for any of the addresses if that record shouldn't get updated
+func Update(user string, password string, domainName string, hostName string, ip4 net.IP, ip6 net.IP) error {
 	log.Info("Getting Hover auth cookie...")
 	client := &http.Client{}
 
@@ -67,7 +68,24 @@ func Update(user string, password string, domainName string, hostName string, ip
 	}
 	log.Info("Found domain ID: " + domainID)
 
-	recordID, err := getRecordID(client, sessionCookie, authCookie, domainID, hostName)
+	if ip4 != nil {
+		err = updateSingleRecord(client, sessionCookie, authCookie, domainID, hostName, ip4.String(), "A")
+		if err != nil {
+			log.Error("Was not able to update IPv4 record:", err)
+		}
+	}
+	if ip6 != nil {
+		err = updateSingleRecord(client, sessionCookie, authCookie, domainID, hostName, ip6.String(), "AAAA")
+		if err != nil {
+			log.Error("Was not able to update IPv6 record:", err)
+		}
+	}
+
+	return nil
+}
+
+func updateSingleRecord(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, ip string, recordType string) error {
+	recordID, err := getRecordID(client, sessionCookie, authCookie, domainID, hostName, recordType)
 	if err != nil {
 		log.Error("Error getting record ID: ", err)
 		return err
@@ -86,7 +104,7 @@ func Update(user string, password string, domainName string, hostName string, ip
 
 	// Create new record
 	log.Info("Creating new record...")
-	err = createRecord(client, sessionCookie, authCookie, domainID, hostName, ip.String())
+	err = createRecord(client, sessionCookie, authCookie, domainID, hostName, ip, recordType)
 	if err != nil {
 		log.Error("Was not able to create new record: ", err)
 		return err
@@ -200,7 +218,7 @@ func getDomainID(client *http.Client, sessionCookie http.Cookie, authCookie http
 	return domainID, nil
 }
 
-func getRecordID(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string) (string, error) {
+func getRecordID(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, recordType string) (string, error) {
 	recordsURL := "https://www.hover.com/api/domains/" + domainID + "/dns"
 	req, err := http.NewRequest("GET", recordsURL, nil)
 	if err != nil {
@@ -239,7 +257,7 @@ func getRecordID(client *http.Client, sessionCookie http.Cookie, authCookie http
 	recordID := ""
 	for _, record := range recordsResult.Domains[0].Records {
 		log.Debug(fmt.Sprintf("Record: %s %s %s", record.Name, record.Type, record.Content))
-		if record.Name == hostName && record.Type == "A" {
+		if record.Name == hostName && record.Type == recordType {
 			recordID = record.ID
 		}
 	}
@@ -247,12 +265,12 @@ func getRecordID(client *http.Client, sessionCookie http.Cookie, authCookie http
 	return recordID, nil
 }
 
-func createRecord(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, address string) error {
+func createRecord(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, address string, recordType string) error {
 	r := CreateRecord{}
 	r.Content = address
 	r.Name = hostName
 	r.TTL = 3600
-	r.Type = "A"
+	r.Type = recordType
 
 	jsonStr, err := json.Marshal(r)
 	if err != nil {

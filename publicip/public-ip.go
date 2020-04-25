@@ -14,6 +14,7 @@ type LookupProviderConfig struct {
 // LookupProvider is an interface for a provider that can resolve the current public IP address
 type LookupProvider interface {
 	GetPublicIP() (net.IP, error)
+	GetPublicIPv6() (net.IP, error)
 }
 
 // NewLookupProvider creates a new lookup provider from a given configuration

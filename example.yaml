@@ -3,7 +3,11 @@ password: "your Hover password"
 # Set the relative(!) hostname to be updated
 hostname: "host"
 domain_name: "example.com"
+disable_ipv4: false
+disable_ipv6: false
+# The DNS server to be used to get the current DNS records
+dns_server: "8.8.8.8:53"
 # Set to true to update even if the IP already is up to date
 force_update: false
 public_ip_provider:
-  service: ipify
+  service: opendns

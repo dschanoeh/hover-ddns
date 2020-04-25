@@ -2,7 +2,7 @@
 
 [![Travis (master)](https://travis-ci.com/dschanoeh/hover-ddns.svg?branch=master)](https://travis-ci.com/dschanoeh/hover-ddns)
 
-hover-ddns is a DDNS client that will update a DNS A record at hover with the current public IP address of the machine.
+hover-ddns is a DDNS client that will update a DNS A and/or AAAA record at hover with the current public IP address(es) of the machine.
 
 This is an unofficial client using the non-supported Hover API.
 
@@ -16,6 +16,7 @@ It doesn't do anything beyond that and if you need more features or different se
 
 ## Features
 
+* IPv4 and IPv6 supported
 * Supports public IP lookup by:
   * Using the ipify API
   * Issuing OpenDNS DNS queries

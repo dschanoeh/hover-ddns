@@ -13,6 +13,7 @@ import (
 
 const (
 	url          = "https://api.ipify.org?format=text"
+	urlV6        = "https://api6.ipify.org?format=text"
 	numOfRetries = 3
 	timeout      = 1000
 )
@@ -62,6 +63,10 @@ func (r *IpifyLookupProvider) GetPublicIP() (net.IP, error) {
 	}
 
 	return ip, nil
+}
+
+func (r *IpifyLookupProvider) GetPublicIPv6() (net.IP, error) {
+	return nil, errors.New("Provider doesn't support IPv6 yet")
 }
 
 func (r *IpifyLookupProvider) getResponse() (*http.Response, error) {

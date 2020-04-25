@@ -2,21 +2,22 @@ package publicip
 
 import (
 	"errors"
-	"log"
 	"net"
 
 	"github.com/miekg/dns"
 )
 
 const (
-	dnsServer = "resolver1.opendns.com:53"
-	dnsTarget = "myip.opendns.com"
+	dnsServer   = "resolver1.opendns.com:53"
+	dnsServerV6 = "resolver1.ipv6-sandbox.opendns.com:53"
+	dnsTarget   = "myip.opendns.com"
 )
 
 // OpenDNSLookupProvider is a lookup provider using the OpenDNS DNS interface
 type OpenDNSLookupProvider struct {
-	client  dns.Client
-	message dns.Msg
+	client    dns.Client
+	message   dns.Msg
+	messageV6 dns.Msg
 }
 
 // NewOpenDNSLookupProvider creates a new OpenDNSLookupProvider
@@ -25,6 +26,7 @@ func NewOpenDNSLookupProvider() *OpenDNSLookupProvider {
 
 	r.client = dns.Client{}
 	r.message.SetQuestion(dnsTarget+".", dns.TypeA)
+	r.messageV6.SetQuestion(dnsTarget+".", dns.TypeAAAA)
 
 	return &r
 }
@@ -32,21 +34,38 @@ func NewOpenDNSLookupProvider() *OpenDNSLookupProvider {
 // GetPublicIP returns the current public IP or nil if an error occured
 func (r *OpenDNSLookupProvider) GetPublicIP() (net.IP, error) {
 	ip := net.IP{}
-
-	res, t, err := r.client.Exchange(&r.message, dnsServer)
+	res, _, err := r.client.Exchange(&r.message, dnsServer)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Took %v", t)
+
 	if len(res.Answer) == 0 {
 		return nil, errors.New("Didn't get any results for the query")
 	}
 
 	for _, ans := range res.Answer {
 		Arecord := ans.(*dns.A)
-		log.Printf("%s", Arecord.A)
 		ip = Arecord.A
+	}
 
+	return ip, nil
+}
+
+// GetPublicIPV6 returns the current public IPv6 address or nil if an error occured
+func (r *OpenDNSLookupProvider) GetPublicIPv6() (net.IP, error) {
+	ip := net.IP{}
+	res, _, err := r.client.Exchange(&r.messageV6, dnsServerV6)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(res.Answer) == 0 {
+		return nil, errors.New("Didn't get any results for the query")
+	}
+
+	for _, ans := range res.Answer {
+		Arecord := ans.(*dns.AAAA)
+		ip = Arecord.AAAA
 	}
 
 	return ip, nil
