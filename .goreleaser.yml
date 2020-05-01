@@ -7,9 +7,13 @@ builds:
       - amd64
       - arm
       - arm64
+      - mipsle
     goos:
       - darwin
       - linux
+      - windows
+    gomips:
+      - softfloat
 archives:
 - replacements:
     darwin: Darwin
