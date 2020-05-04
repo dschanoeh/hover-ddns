@@ -21,6 +21,7 @@ It doesn't do anything beyond that and if you need more features or different se
   * Using the ipify API
   * Issuing OpenDNS DNS queries
   * Extracting the address from a lokal network interface
+* Cron syntax can be used to schedule periodic updates
 
 ## Usage
 
@@ -47,7 +48,6 @@ Download the latest release from https://github.com/dschanoeh/hover-ddns/release
     $ sudo chmod 600 /etc/hover-ddns.yaml
 
     $ sudo mv hover-ddns.service /etc/systemd/system/
-    $ sudo mv hover-ddns.timer /etc/systemd/system/
     $ sudo systemctl daemon-reload
-    $ sudo systemctl enable hover-ddns.timer
-    $ sudo systemctl start hover-ddns.timer
+    $ sudo systemctl enable hover-ddns.service
+    $ sudo systemctl start hover-ddns.service

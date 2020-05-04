@@ -7,10 +7,13 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/dschanoeh/hover-ddns/hover"
 	"github.com/dschanoeh/hover-ddns/publicip"
 	"github.com/miekg/dns"
+	"github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
@@ -25,6 +28,7 @@ type Config struct {
 	ForceUpdate      bool                          `yaml:"force_update"`
 	PublicIPProvider publicip.LookupProviderConfig `yaml:"public_ip_provider"`
 	DNSServer        string                        `yaml:"dns_server"`
+	CronExpression   string                        `yaml:"cron_expression"`
 }
 
 var (
@@ -32,6 +36,8 @@ var (
 	commit  = "none"
 	date    = "unknown"
 	builtBy = "unknown"
+
+	cronScheduler = cron.New()
 )
 
 func main() {
@@ -94,13 +100,34 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Schedule periodic calls
+	executeFunction := func() {
+		run(&config, provider, dryRun, manualV4, manualV6)
+	}
+	_, err = cronScheduler.AddFunc(config.CronExpression, executeFunction)
+	if err != nil {
+		log.Error("Was not able to schedule periodic execution: ", err)
+		os.Exit(1)
+	}
+	cronScheduler.Start()
+
+	// We'll wait here until we receive a signal
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	sig := <-c
+	log.Warn("Received signal " + sig.String())
+	cronScheduler.Stop()
+	os.Exit(0)
+}
+
+func run(config *Config, provider publicip.LookupProvider, dryRun *bool, manualV4 *string, manualV6 *string) {
 	publicV4 := net.IP{}
 	publicV6 := net.IP{}
 
 	if !config.DisableV4 {
 		if *manualV4 == "" {
 			log.Info("Getting public IPv4...")
-			publicV4, err = provider.GetPublicIP()
+			publicV4, err := provider.GetPublicIP()
 
 			if err != nil {
 				log.Warn("Failed to get public ip: ", err)
@@ -114,7 +141,7 @@ func main() {
 
 			if publicV4 == nil {
 				log.Error("Provided IP '" + *manualV4 + "' is not a valid IP address.")
-				os.Exit(1)
+				return
 			}
 		}
 
@@ -144,7 +171,7 @@ func main() {
 	if !config.DisableV6 {
 		if *manualV6 == "" {
 			log.Info("Getting public IPv6...")
-			publicV6, err = provider.GetPublicIPv6()
+			publicV6, err := provider.GetPublicIPv6()
 
 			if err != nil {
 				log.Warn("Failed to get public ip: ", err)
@@ -158,7 +185,7 @@ func main() {
 
 			if publicV6 == nil {
 				log.Error("Provided IP '" + *manualV6 + "' is not a valid IP address.")
-				os.Exit(1)
+				return
 			}
 		}
 
@@ -187,13 +214,12 @@ func main() {
 
 	// No update if we are doing a dry-run or both entries were marked as irrelevant
 	if !*dryRun && !(publicV4 == nil && publicV6 == nil) {
-		err = hover.Update(config.Username, config.Password, config.DomainName, config.Hostname, publicV4, publicV6)
+		err := hover.Update(config.Username, config.Password, config.DomainName, config.Hostname, publicV4, publicV6)
 		if err != nil {
-			os.Exit(1)
+			log.Error("Was not able to update hover records: ", err)
+			return
 		}
 	}
-
-	os.Exit(0)
 }
 
 func loadConfig(filename string, config *Config) error {

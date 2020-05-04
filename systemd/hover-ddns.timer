@@ -1,9 +1,0 @@
-[Unit]
-Description=Timer for Hover DDNS Updater
-
-[Timer]
-OnUnitActiveSec=15min
-
-[Install]
-WantedBy=timers.target
-

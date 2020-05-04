@@ -4,5 +4,8 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=oneshot
+Type=simple
 ExecStart=/usr/local/bin/hover-ddns --config /etc/hover-ddns.yaml
+
+[Install]
+WantedBy=multi-user.target

@@ -5,6 +5,8 @@ hostname: "host"
 domain_name: "example.com"
 disable_ipv4: false
 disable_ipv6: false
+# Check for changes every 15 minutes
+cron_expression: "*/15 * * * *"
 # The DNS server to be used to get the current DNS records
 dns_server: "8.8.8.8:53"
 # Set to true to update even if the IP already is up to date
