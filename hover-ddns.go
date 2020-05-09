@@ -121,13 +121,14 @@ func main() {
 }
 
 func run(config *Config, provider publicip.LookupProvider, dryRun *bool, manualV4 *string, manualV6 *string) {
-	publicV4 := net.IP{}
-	publicV6 := net.IP{}
+	var publicV4 net.IP
+	var publicV6 net.IP
+	var err error
 
 	if !config.DisableV4 {
 		if *manualV4 == "" {
 			log.Info("Getting public IPv4...")
-			publicV4, err := provider.GetPublicIP()
+			publicV4, err = provider.GetPublicIP()
 
 			if err != nil {
 				log.Warn("Failed to get public ip: ", err)
@@ -154,7 +155,7 @@ func run(config *Config, provider publicip.LookupProvider, dryRun *bool, manualV
 			log.Info("Received current IPv4 " + currentV4.String())
 		}
 
-		if currentV4 != nil && currentV4.Equal(publicV4) {
+		if currentV4 != nil && publicV4 != nil && currentV4.Equal(publicV4) {
 			if !config.ForceUpdate {
 				log.Info("v4 DNS entry already up to date - nothing to do.")
 				publicV4 = nil
@@ -171,7 +172,7 @@ func run(config *Config, provider publicip.LookupProvider, dryRun *bool, manualV
 	if !config.DisableV6 {
 		if *manualV6 == "" {
 			log.Info("Getting public IPv6...")
-			publicV6, err := provider.GetPublicIPv6()
+			publicV6, err = provider.GetPublicIPv6()
 
 			if err != nil {
 				log.Warn("Failed to get public ip: ", err)
@@ -198,7 +199,7 @@ func run(config *Config, provider publicip.LookupProvider, dryRun *bool, manualV
 			log.Info("Received current IPv6 " + currentV6.String())
 		}
 
-		if currentV6 != nil && currentV6.Equal(publicV6) {
+		if currentV6 != nil && publicV6 != nil && currentV6.Equal(publicV6) {
 			if !config.ForceUpdate {
 				log.Info("v6 DNS entry already up to date - nothing to do.")
 				publicV6 = nil

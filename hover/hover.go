@@ -69,15 +69,23 @@ func Update(user string, password string, domainName string, hostName string, ip
 	log.Info("Found domain ID: " + domainID)
 
 	if ip4 != nil {
-		err = updateSingleRecord(client, sessionCookie, authCookie, domainID, hostName, ip4.String(), "A")
-		if err != nil {
-			log.Error("Was not able to update IPv4 record:", err)
+		if ip4.To4() == nil {
+			log.Error(fmt.Sprintf("Not updating invalid address '%s'", ip4.String()))
+		} else {
+			err = updateSingleRecord(client, sessionCookie, authCookie, domainID, hostName, ip4.String(), "A")
+			if err != nil {
+				log.Error("Was not able to update IPv4 record:", err)
+			}
 		}
 	}
 	if ip6 != nil {
-		err = updateSingleRecord(client, sessionCookie, authCookie, domainID, hostName, ip6.String(), "AAAA")
-		if err != nil {
-			log.Error("Was not able to update IPv6 record:", err)
+		if ip6.To16() == nil {
+			log.Error(fmt.Sprintf("Not updating invalid address '%s'", ip4.String()))
+		} else {
+			err = updateSingleRecord(client, sessionCookie, authCookie, domainID, hostName, ip6.String(), "AAAA")
+			if err != nil {
+				log.Error("Was not able to update IPv6 record:", err)
+			}
 		}
 	}
 
@@ -103,7 +111,7 @@ func updateSingleRecord(client *http.Client, sessionCookie http.Cookie, authCook
 	}
 
 	// Create new record
-	log.Info("Creating new record...")
+	log.Info(fmt.Sprintf("Creating new record of type '%s' and IP '%s'...", recordType, ip))
 	err = createRecord(client, sessionCookie, authCookie, domainID, hostName, ip, recordType)
 	if err != nil {
 		log.Error("Was not able to create new record: ", err)
@@ -148,6 +156,10 @@ func getHoverAuthCookie(client *http.Client, username string, password string) (
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err = client.Do(req)
+	if err != nil {
+		return sessionCookie, authCookie, err
+	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := ioutil.ReadAll(resp.Body)
@@ -278,6 +290,7 @@ func createRecord(client *http.Client, sessionCookie http.Cookie, authCookie htt
 	}
 
 	recordPostURL := "https://www.hover.com/api/domains/" + domainID + "/dns"
+	log.Debug("Creating record: " + string(jsonStr))
 
 	req, err := http.NewRequest("POST", recordPostURL, bytes.NewBuffer(jsonStr))
 	if err != nil {
