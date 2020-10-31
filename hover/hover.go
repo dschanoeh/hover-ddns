@@ -124,7 +124,7 @@ func updateSingleRecord(client *http.Client, sessionCookie http.Cookie, authCook
 func getHoverAuthCookie(client *http.Client, username string, password string) (http.Cookie, http.Cookie, error) {
 
 	signinURL := "https://www.hover.com/signin"
-	authURL := "https://www.hover.com/signin/auth.json"
+	authURL := "https://www.hover.com/api/login"
 
 	sessionCookie := http.Cookie{}
 	authCookie := http.Cookie{}
