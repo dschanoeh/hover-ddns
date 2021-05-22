@@ -1,6 +1,7 @@
 # hover-ddns
 
-[![Travis (master)](https://travis-ci.com/dschanoeh/hover-ddns.svg?branch=master)](https://travis-ci.com/dschanoeh/hover-ddns)
+![Build status](https://github.com/dschanoeh/hover-ddns/workflows/build/badge.svg)
+![License](https://img.shields.io/github/license/dschanoeh/hover-ddns)
 
 hover-ddns is a DDNS client that will update a DNS A and/or AAAA record at hover with the current public IP address(es) of the machine.
 
