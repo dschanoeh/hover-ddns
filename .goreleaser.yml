@@ -1,7 +1,8 @@
 before:
   hooks:
 builds:
-  - env:
+  - id: "linux"
+    env:
       - CGO_ENABLED=0
     goarch:
       - amd64
@@ -9,14 +10,21 @@ builds:
       - arm64
       - mipsle
     goos:
-      - darwin
       - linux
-      - windows
     goarm:
       - 6
       - 7
     gomips:
       - softfloat
+  - id: "non-linux"
+    env:
+      - CGO_ENABLED=0
+    goarch:
+      - amd64
+      - arm64
+    goos:
+      - darwin
+      - windows
 archives:
   - replacements:
       darwin: Darwin
