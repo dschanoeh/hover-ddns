@@ -18,15 +18,15 @@ builds:
     gomips:
       - softfloat
 archives:
-- replacements:
-    darwin: Darwin
-    linux: Linux
-    windows: Windows
-    386: i386
-    amd64: x86_64
-  files:
-    - example.yaml
-    - systemd/*
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+    files:
+      - example.yaml
+      - systemd/*
 checksum:
   name_template: 'checksums.txt'
 snapshot:
@@ -35,8 +35,8 @@ changelog:
   sort: asc
   filters:
     exclude:
-    - '^docs:'
-    - '^test:'
+      - '^docs:'
+      - '^test:'
 release:
   github:
     owner: dschanoeh
