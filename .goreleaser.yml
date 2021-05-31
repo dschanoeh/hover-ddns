@@ -35,6 +35,27 @@ archives:
     files:
       - example.yaml
       - systemd/*
+nfpms:
+  - builds:
+      - "linux"
+    replacements:
+      amd64: x86_64
+      linux: Linux
+    homepage: https://github.com/dschanoeh/hover-ddns
+    maintainer: Jan-Niklas Meier <jan@jansblog.org>
+    description: A Dynamic DNS client for the unofficial Hover API.
+    license: Apache 2.0
+    formats:
+      - deb
+    contents:
+      - src: example.yaml
+        dst: /etc/hover-ddns.yaml
+        type: config
+      - src: systemd/hover-ddns.service
+        dst: /etc/systemd/system/hover-ddns.service
+        type: config
+    scripts:
+      postinstall: scripts/postinstall.sh
 checksum:
   name_template: 'checksums.txt'
 snapshot:
