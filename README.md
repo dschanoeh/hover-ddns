@@ -49,7 +49,7 @@ the following commands.
 
 This is an example setup on Linux using the provided systemd service and timer.
 
-[Download the latest release](https://github.com/dschanoeh/hover-ddns/releasesa)
+[Download the latest release](https://github.com/dschanoeh/hover-ddns/releases)
 and run the following commands.
 
     $ tar xvf [downloaded_archive.tar.gz]
