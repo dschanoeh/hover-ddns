@@ -32,9 +32,25 @@ Create a config file with your credentials and domain info (see the provided exa
 
 ## Installation
 
+### Debian-based Linux Distributions
+
+Download the deb corresponding to your architecture from
+[the releases page](https://github.com/dschanoeh/hover-ddns/releases) and run
+the following commands.
+
+    $ sudo dpkg -i [downloaded_deb.deb]
+    
+    [Customize /etc/hover-ddns.yaml with your domain information and other preferences]
+
+    $ sudo systemctl start hover-ddns.service
+
+
+### Manually
+
 This is an example setup on Linux using the provided systemd service and timer.
 
-Download the latest release from https://github.com/dschanoeh/hover-ddns/releases.
+[Download the latest release](https://github.com/dschanoeh/hover-ddns/releases)
+and run the following commands.
 
     $ tar xvf [downloaded_archive.tar.gz]
     $ sudo mv hover-ddns /usr/local/bin
