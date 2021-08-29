@@ -21,14 +21,18 @@ import (
 type Config struct {
 	Username         string
 	Password         string
-	Hostname         string
+	Domains          []DomainConfig                `yaml:"domains"`
 	DisableV4        bool                          `yaml:"disable_ipv4"`
 	DisableV6        bool                          `yaml:"disable_ipv6"`
-	DomainName       string                        `yaml:"domain_name"`
 	ForceUpdate      bool                          `yaml:"force_update"`
 	PublicIPProvider publicip.LookupProviderConfig `yaml:"public_ip_provider"`
 	DNSServer        string                        `yaml:"dns_server"`
 	CronExpression   string                        `yaml:"cron_expression"`
+}
+
+type DomainConfig struct {
+	DomainName string   `yaml:"domain_name"`
+	Hosts      []string `yaml:"hosts"`
 }
 
 var (
@@ -121,6 +125,43 @@ func main() {
 }
 
 func run(config *Config, provider publicip.LookupProvider, dryRun *bool, manualV4 *string, manualV6 *string) {
+	var auth *hover.HoverAuth
+	var err error
+
+	publicV4, publicV6 := determinePublicIPs(config, provider, manualV4, manualV6)
+
+	for _, domain := range config.Domains {
+		for _, hostName := range domain.Hosts {
+			v4, v6 := hostNeedsUpdating(domain.DomainName, hostName, publicV4, publicV6, config)
+
+			if !*dryRun {
+				// Attempt hover login when the first entry that requires updating is discovered
+				if (v4 != nil || v6 != nil) && auth == nil {
+					auth, err = hover.Login(config.Username, config.Password)
+					if err != nil {
+						log.Error("Could not log in: ", err)
+						return
+					}
+					log.Debug("AuthCookie [" + auth.AuthCookie.Name + "]: " + auth.AuthCookie.Value)
+					log.Debug("SessionCookie [" + auth.SessionCookie.Name + "]: " + auth.SessionCookie.Value)
+				}
+
+				if !(publicV4 == nil && publicV6 == nil) {
+					err := hover.Update(auth, domain.DomainName, hostName, publicV4, publicV6)
+					if err != nil {
+						log.Error("Was not able to update hover records: ", err)
+						return
+					}
+				}
+			}
+		}
+	}
+
+}
+
+// determinePublicIPs tries to determine the current IPv4 and IPv6 addresses. If this fails or one of the versions
+// is deactivated, nil is returned instead.
+func determinePublicIPs(config *Config, provider publicip.LookupProvider, manualV4 *string, manualV6 *string) (net.IP, net.IP) {
 	var publicV4 net.IP
 	var publicV6 net.IP
 	var err error
@@ -141,29 +182,8 @@ func run(config *Config, provider publicip.LookupProvider, dryRun *bool, manualV
 			log.Info("Using manually provied public IPv4 " + *manualV4)
 
 			if publicV4 == nil {
-				log.Error("Provided IP '" + *manualV4 + "' is not a valid IP address.")
-				return
+				log.Error("Provided IP '" + *manualV4 + "' is not a valid IP address - ignoring.")
 			}
-		}
-
-		log.Info("Resolving current IPv4...")
-		currentV4, err := performDNSLookup(config.Hostname+"."+config.DomainName, config.DNSServer, dns.TypeA)
-		if err != nil {
-			log.Warn("Failed to resolve the current IPv4: ", err)
-		}
-		if currentV4 != nil {
-			log.Info("Received current IPv4 " + currentV4.String())
-		}
-
-		if currentV4 != nil && publicV4 != nil && currentV4.Equal(publicV4) {
-			if !config.ForceUpdate {
-				log.Info("v4 DNS entry already up to date - nothing to do.")
-				publicV4 = nil
-			} else {
-				log.Info("v4 DNS entry already up to date, but update forced...")
-			}
-		} else {
-			log.Info("v4 IPs differ - update required...")
 		}
 	} else {
 		publicV4 = nil
@@ -185,13 +205,44 @@ func run(config *Config, provider publicip.LookupProvider, dryRun *bool, manualV
 			log.Info("Using manually provied public IPv6 " + *manualV6)
 
 			if publicV6 == nil {
-				log.Error("Provided IP '" + *manualV6 + "' is not a valid IP address.")
-				return
+				log.Error("Provided IP '" + *manualV6 + "' is not a valid IP address - ignoring.")
 			}
 		}
+	} else {
+		publicV6 = nil
+	}
 
+	return publicV4, publicV6
+}
+
+// hostNeedsUpdating determines if the records for the given host need updating by comparing the provided IPs with
+// a DNS lookup. nil is returned for IP address types that don't need updating.
+func hostNeedsUpdating(domain string, hostName string, publicV4 net.IP, publicV6 net.IP, config *Config) (net.IP, net.IP) {
+	if publicV4 != nil {
+		log.Info("Resolving current IPv4...")
+		currentV4, err := performDNSLookup(hostName+"."+domain, config.DNSServer, dns.TypeA)
+		if err != nil {
+			log.Warn("Failed to resolve the current IPv4: ", err)
+		}
+		if currentV4 != nil {
+			log.Info("Received current IPv4 " + currentV4.String())
+		}
+
+		if currentV4 != nil && publicV4 != nil && currentV4.Equal(publicV4) {
+			if !config.ForceUpdate {
+				log.Info("v4 DNS entry already up to date - nothing to do.")
+				publicV4 = nil
+			} else {
+				log.Info("v4 DNS entry already up to date, but update forced...")
+			}
+		} else {
+			log.Info("v4 IPs differ - update required...")
+		}
+	}
+
+	if publicV6 != nil {
 		log.Info("Resolving current IPv6...")
-		currentV6, err := performDNSLookup(config.Hostname+"."+config.DomainName, config.DNSServer, dns.TypeAAAA)
+		currentV6, err := performDNSLookup(hostName+"."+domain, config.DNSServer, dns.TypeAAAA)
 		if err != nil {
 			log.Warn("Failed to resolve the current IPv6: ", err)
 		}
@@ -209,18 +260,9 @@ func run(config *Config, provider publicip.LookupProvider, dryRun *bool, manualV
 		} else {
 			log.Info("v6 IPs differ - update required...")
 		}
-	} else {
-		publicV6 = nil
 	}
 
-	// No update if we are doing a dry-run or both entries were marked as irrelevant
-	if !*dryRun && !(publicV4 == nil && publicV6 == nil) {
-		err := hover.Update(config.Username, config.Password, config.DomainName, config.Hostname, publicV4, publicV6)
-		if err != nil {
-			log.Error("Was not able to update hover records: ", err)
-			return
-		}
-	}
+	return publicV4, publicV6
 }
 
 func loadConfig(filename string, config *Config) error {
@@ -243,14 +285,21 @@ func validateConfig(config *Config) bool {
 		return false
 	}
 
-	if config.DomainName == "" {
-		log.Error("Invalid config: A domain name must be provided")
+	if len(config.Domains) == 0 {
+		log.Error("Invalid config: No domain configuration was provided")
 		return false
 	}
 
-	if config.Hostname == "" {
-		log.Error("Invalid config: A host name must be provided")
-		return false
+	for _, d := range config.Domains {
+		if d.DomainName == "" {
+			log.Error("Invalid config: A domain name must be provided")
+			return false
+		}
+
+		if len(d.Hosts) == 0 {
+			log.Error("Invalid config: At least one host name must be provided")
+			return false
+		}
 	}
 
 	if config.Password == "" {

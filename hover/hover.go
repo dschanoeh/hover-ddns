@@ -46,22 +46,21 @@ type CreateRecord struct {
 	TTL     int    `json:"ttl"`
 }
 
+type HoverAuth struct {
+	SessionCookie http.Cookie
+	AuthCookie    http.Cookie
+}
+
 // Update tries to update the DNS record for hostName with the provided IP(s).
 // Provide nil for any of the addresses if that record shouldn't get updated
-func Update(user string, password string, domainName string, hostName string, ip4 net.IP, ip6 net.IP) error {
-	log.Info("Getting Hover auth cookie...")
+func Update(auth *HoverAuth, domainName string, hostName string, ip4 net.IP, ip6 net.IP) error {
 	client := &http.Client{}
 
-	sessionCookie, authCookie, err := getHoverAuthCookie(client, user, password)
-	if err != nil {
-		log.Error("Failed to get auth cookie: ", err)
-		return err
+	if auth == nil {
+		return errors.New("no auth session was provide")
 	}
 
-	log.Debug("AuthCookie [" + authCookie.Name + "]: " + authCookie.Value)
-	log.Debug("SessionCookie [" + sessionCookie.Name + "]: " + sessionCookie.Value)
-
-	domainID, err := getDomainID(client, sessionCookie, authCookie, domainName)
+	domainID, err := getDomainID(client, auth.SessionCookie, auth.AuthCookie, domainName)
 	if err != nil {
 		log.Error("Failed to get domain ID: ", err)
 		return err
@@ -72,7 +71,7 @@ func Update(user string, password string, domainName string, hostName string, ip
 		if ip4.To4() == nil {
 			log.Error(fmt.Sprintf("Not updating invalid address '%s'", ip4.String()))
 		} else {
-			err = updateSingleRecord(client, sessionCookie, authCookie, domainID, hostName, ip4.String(), "A")
+			err = updateSingleRecord(client, auth.SessionCookie, auth.AuthCookie, domainID, hostName, ip4.String(), "A")
 			if err != nil {
 				log.Error("Was not able to update IPv4 record:", err)
 			}
@@ -82,7 +81,7 @@ func Update(user string, password string, domainName string, hostName string, ip
 		if ip6.To16() == nil {
 			log.Error(fmt.Sprintf("Not updating invalid address '%s'", ip4.String()))
 		} else {
-			err = updateSingleRecord(client, sessionCookie, authCookie, domainID, hostName, ip6.String(), "AAAA")
+			err = updateSingleRecord(client, auth.SessionCookie, auth.AuthCookie, domainID, hostName, ip6.String(), "AAAA")
 			if err != nil {
 				log.Error("Was not able to update IPv6 record:", err)
 			}
@@ -121,18 +120,20 @@ func updateSingleRecord(client *http.Client, sessionCookie http.Cookie, authCook
 	return nil
 }
 
-func getHoverAuthCookie(client *http.Client, username string, password string) (http.Cookie, http.Cookie, error) {
+func Login(username string, password string) (*HoverAuth, error) {
 
 	signinURL := "https://www.hover.com/signin"
 	authURL := "https://www.hover.com/api/login"
 
+	client := &http.Client{}
 	sessionCookie := http.Cookie{}
 	authCookie := http.Cookie{}
 
+	log.Info("Getting Hover auth cookie...")
 	// Get session cookie
 	resp, err := http.Get(signinURL)
 	if resp.StatusCode != 200 {
-		return sessionCookie, authCookie, errors.New("Received sessionstatus code " + strconv.Itoa(resp.StatusCode))
+		return nil, errors.New("Received sessionstatus code " + strconv.Itoa(resp.StatusCode))
 	}
 	for _, cookie := range resp.Cookies() {
 		log.Info(cookie.Name)
@@ -149,7 +150,7 @@ func getHoverAuthCookie(client *http.Client, username string, password string) (
 
 	req, err := http.NewRequest("POST", authURL, bytes.NewBuffer(jsonStr))
 	if err != nil {
-		return sessionCookie, authCookie, err
+		return nil, err
 	}
 
 	req.AddCookie(&sessionCookie)
@@ -157,28 +158,32 @@ func getHoverAuthCookie(client *http.Client, username string, password string) (
 
 	resp, err = client.Do(req)
 	if err != nil {
-		return sessionCookie, authCookie, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := ioutil.ReadAll(resp.Body)
 		log.Debug(string(bodyBytes))
-		return sessionCookie, authCookie, errors.New("Received status code " + strconv.Itoa(resp.StatusCode))
+		return nil, errors.New("Received status code " + strconv.Itoa(resp.StatusCode))
 	}
 	if err != nil {
-		return sessionCookie, authCookie, err
+		return nil, err
 	}
 
 	for _, cookie := range resp.Cookies() {
 		// Response returns two hoverauth cookies, the first having no value
 		if cookie.Name == "hoverauth" && cookie.Value != "" {
 			authCookie = *cookie
-			return sessionCookie, authCookie, nil
+			var auth = HoverAuth{
+				AuthCookie:    authCookie,
+				SessionCookie: sessionCookie,
+			}
+			return &auth, nil
 		}
 	}
 
-	return sessionCookie, authCookie, errors.New("Didn't receive a hoverauth cookie")
+	return nil, errors.New("Didn't receive a hoverauth cookie")
 }
 
 func getDomainID(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainName string) (string, error) {
