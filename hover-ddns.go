@@ -343,11 +343,11 @@ func performDNSLookup(hostname string, dnsServer string, dnsType uint16) (net.IP
 	}
 
 	if res.Rcode != dns.RcodeSuccess {
-		return nil, errors.New("Invalid DNS answer")
+		return nil, errors.New("invalid DNS answer")
 	}
 
 	if len(res.Answer) == 0 {
-		return nil, errors.New("Didn't get any results for the query")
+		return nil, errors.New("didn't get any results for the query")
 	}
 
 	if len(res.Answer) > 1 {
@@ -364,5 +364,5 @@ func performDNSLookup(hostname string, dnsServer string, dnsType uint16) (net.IP
 		return aRecord.AAAA, nil
 	}
 
-	return nil, errors.New("No valid record type selected")
+	return nil, errors.New("no valid record type selected")
 }
