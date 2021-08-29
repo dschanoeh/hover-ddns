@@ -3,7 +3,7 @@
 ![Build status](https://github.com/dschanoeh/hover-ddns/workflows/build/badge.svg)
 ![License](https://img.shields.io/github/license/dschanoeh/hover-ddns)
 
-hover-ddns is a DDNS client that will update a DNS A and/or AAAA record at hover with the current public IP address(es) of the machine.
+hover-ddns is a DDNS client that will update DNS A and/or AAAA records at hover with the current public IP address(es) of the machine.
 
 This is an unofficial client using the non-supported Hover API.
 
@@ -11,7 +11,7 @@ It will:
 
 1. Determine the current public IP address of the host machine
 2. Authenticate against the Hover API
-3. Create or update the DNS entry for the specified hostname
+3. Create or update the DNS entry for the specified domain(s) and hostname(s)
 
 It doesn't do anything beyond that and if you need more features or different services, I suggest to look at tools like [lexicon](https://github.com/AnalogJ/lexicon).
 
@@ -21,8 +21,9 @@ It doesn't do anything beyond that and if you need more features or different se
 * Supports public IP lookup by:
   * Using the ipify API
   * Issuing OpenDNS DNS queries
-  * Extracting the address from a lokal network interface
+  * Extracting the address from a local network interface
 * Cron syntax can be used to schedule periodic updates
+* Multiple domains and hostnames can be specified. All will be updated with the same IP address info
 
 ## Usage
 

@@ -1,8 +1,11 @@
 username: "your Hover username"
 password: "your Hover password"
-# Set the relative(!) hostname to be updated
-hostname: "host"
-domain_name: "example.com"
+# A list of domains and hostnames to be updated
+domains:
+  - domain_name: "example.com"
+    hosts:
+      - "foo"
+      - "bar"
 disable_ipv4: false
 disable_ipv6: false
 # Check for changes every 15 minutes
