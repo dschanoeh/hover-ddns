@@ -139,6 +139,7 @@ func run(config *Config, provider publicip.LookupProvider, dryRun *bool, manualV
 
 	for _, domain := range config.Domains {
 		for _, hostName := range domain.Hosts {
+			log.Infof("--- Processing host %s.%s ---", hostName, domain.DomainName)
 			v4, v6 := hostNeedsUpdating(domain.DomainName, hostName, publicV4, publicV6, config)
 
 			if !*dryRun {

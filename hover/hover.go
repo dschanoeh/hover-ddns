@@ -57,7 +57,7 @@ func Update(auth *HoverAuth, domainName string, hostName string, ip4 net.IP, ip6
 	client := &http.Client{}
 
 	if auth == nil {
-		return errors.New("no auth session was provide")
+		return errors.New("no auth session was provided")
 	}
 
 	domainID, err := getDomainID(client, auth.SessionCookie, auth.AuthCookie, domainName)
@@ -65,7 +65,7 @@ func Update(auth *HoverAuth, domainName string, hostName string, ip4 net.IP, ip6
 		log.Error("Failed to get domain ID: ", err)
 		return err
 	}
-	log.Info("Found domain ID: " + domainID)
+	log.Infof("Found domain ID %s for domain %s", domainID, domainName)
 
 	if ip4 != nil {
 		if ip4.To4() == nil {
@@ -100,8 +100,8 @@ func updateSingleRecord(client *http.Client, sessionCookie http.Cookie, authCook
 
 	// Record exists, so we need to delete it before creating a new one
 	if !(recordID == "") {
-		log.Info("Found existing record ID: " + recordID)
-		log.Info("Deleting...")
+		log.Infof("Found existing record ID %s for host name %s and type %s", domainID, hostName, recordType)
+		log.Info("Deleting existing record...")
 		err = deleteRecord(client, sessionCookie, authCookie, recordID)
 		if err != nil {
 			log.Error("Was not able to delete existing record: ", err)
@@ -110,7 +110,7 @@ func updateSingleRecord(client *http.Client, sessionCookie http.Cookie, authCook
 	}
 
 	// Create new record
-	log.Info(fmt.Sprintf("Creating new record of type '%s' and IP '%s'...", recordType, ip))
+	log.Infof("Creating new record of type '%s' and IP '%s'...", recordType, ip)
 	err = createRecord(client, sessionCookie, authCookie, domainID, hostName, ip, recordType)
 	if err != nil {
 		log.Error("Was not able to create new record: ", err)
@@ -136,9 +136,9 @@ func Login(username string, password string) (*HoverAuth, error) {
 		return nil, errors.New("Received sessionstatus code " + strconv.Itoa(resp.StatusCode))
 	}
 	for _, cookie := range resp.Cookies() {
-		log.Info(cookie.Name)
+		log.Debug("Found cookie: ", cookie.Name)
 		if cookie.Name == "hover_session" {
-			log.Info("got session cookie")
+			log.Debug("got session cookie")
 			sessionCookie = *cookie
 			break
 		}
@@ -183,7 +183,7 @@ func Login(username string, password string) (*HoverAuth, error) {
 		}
 	}
 
-	return nil, errors.New("Didn't receive a hoverauth cookie")
+	return nil, errors.New("didn't receive a hoverauth cookie")
 }
 
 func getDomainID(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainName string) (string, error) {
@@ -268,7 +268,7 @@ func getRecordID(client *http.Client, sessionCookie http.Cookie, authCookie http
 
 	log.Debug(fmt.Sprintf("%+v\n", recordsResult))
 	if !recordsResult.Succeeded || len(recordsResult.Domains) != 1 {
-		return "", errors.New("Records request failed")
+		return "", errors.New("records request failed")
 	}
 
 	recordID := ""
