@@ -154,8 +154,8 @@ func run(config *Config, provider publicip.LookupProvider, dryRun *bool, manualV
 					log.Debug("SessionCookie [" + auth.SessionCookie.Name + "]: " + auth.SessionCookie.Value)
 				}
 
-				if !(publicV4 == nil && publicV6 == nil) {
-					err := hover.Update(auth, domain.DomainName, hostName, publicV4, publicV6)
+				if !(v4 == nil && v6 == nil) {
+					err := hover.Update(auth, domain.DomainName, hostName, v4, v6)
 					if err != nil {
 						log.Error("Was not able to update hover records: ", err)
 						return
