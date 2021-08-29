@@ -123,7 +123,7 @@ func main() {
 	cronScheduler.Start()
 
 	// We'll wait here until we receive a signal
-	c := make(chan os.Signal)
+	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	sig := <-c
 	log.Warn("Received signal " + sig.String())
