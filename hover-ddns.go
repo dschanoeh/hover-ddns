@@ -48,7 +48,7 @@ func main() {
 	config := Config{}
 	var verbose = flag.Bool("verbose", false, "Turns on verbose information on the update process. Otherwise, only errors cause output.")
 	var debug = flag.Bool("debug", false, "Turns on debug information")
-	var dryRun = flag.Bool("dry-run", false, "Perform lookups but don't actually update the DNS info")
+	var dryRun = flag.Bool("dry-run", false, "Perform lookups but don't actually update the DNS info. Returns after a single check.")
 	var configFile = flag.String("config", "", "Config file")
 	var manualV4 = flag.String("manual-ipv4", "", "Specify the IP address to be submitted instead of looking it up")
 	var manualV6 = flag.String("manual-ipv6", "", "Specify the IP address to be submitted instead of looking it up")
@@ -102,6 +102,13 @@ func main() {
 	if err != nil {
 		log.Error("Could not configure public ip provider: ", err)
 		os.Exit(1)
+	}
+
+	// When a dry run is requested, scheduling will be ignored and a single
+	// run will be executed immediately.
+	if *dryRun {
+		run(&config, provider, dryRun, manualV4, manualV6)
+		return
 	}
 
 	// Schedule periodic calls
