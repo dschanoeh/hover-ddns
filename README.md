@@ -27,9 +27,40 @@ It doesn't do anything beyond that and if you need more features or different se
 
 ## Usage
 
-Create a config file with your credentials and domain info (see the provided example.yaml) and then run hover-ddns:
+Create a config file with your credentials and domain info (see the provided example.yaml).
+
+For the configuration of the provider of your current IP address, you
+have the following options:
+
+1. Use the ipify API:
+
+    ```yaml
+    public_ip_provider:
+      service: ipify
+    ```
+
+2. Issue DNS queries to the OpenDNS service:
+
+    ```yaml
+    public_ip_provider:
+      service: opendns
+    ```
+
+3. Extract the addresses  from a local WAN interface:
+
+    ```yaml
+    public_ip_provider:
+      service: local_interface
+      interface_name: en0
+    ```
+
+Afterwards, either manually run hover-ddns:
 
     $ hover-ddns --config config.yaml
+
+or use the provided systemd service file:
+
+    $ sudo systemctl start hover-ddns.service
 
 ## Installation
 
@@ -48,7 +79,7 @@ the following commands.
 
 ### Manually
 
-This is an example setup on Linux using the provided systemd service and timer.
+This is an example setup on Linux using the provided systemd service.
 
 [Download the latest release](https://github.com/dschanoeh/hover-ddns/releases)
 and run the following commands.
