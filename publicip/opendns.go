@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	dnsServer   = "resolver1.opendns.com:53"
-	dnsServerV6 = "resolver1.ipv6-sandbox.opendns.com:53"
+	dnsServer   = "208.67.222.222:53"    // resolver1.opendns.com
+	dnsServerV6 = "[2620:119:35::35]:53" // resolver1.opendns.com
 	dnsTarget   = "myip.opendns.com"
 )
 
@@ -40,7 +40,7 @@ func (r *OpenDNSLookupProvider) GetPublicIP() (net.IP, error) {
 	}
 
 	if len(res.Answer) == 0 {
-		return nil, errors.New("Didn't get any results for the query")
+		return nil, errors.New("didn't get any results for the query")
 	}
 
 	for _, ans := range res.Answer {
@@ -60,7 +60,7 @@ func (r *OpenDNSLookupProvider) GetPublicIPv6() (net.IP, error) {
 	}
 
 	if len(res.Answer) == 0 {
-		return nil, errors.New("Didn't get any results for the query")
+		return nil, errors.New("didn't get any results for the query")
 	}
 
 	for _, ans := range res.Answer {
