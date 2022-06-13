@@ -104,10 +104,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// When a dry run is requested, scheduling will be ignored and a single
-	// run will be executed immediately.
+	// Perform a first run immediately
+	log.Info("Performing first update")
+	run(&config, provider, dryRun, manualV4, manualV6)
+
+	// If a dry-run was requested, we're done now and can terminate
 	if *dryRun {
-		run(&config, provider, dryRun, manualV4, manualV6)
 		return
 	}
 
@@ -121,6 +123,7 @@ func main() {
 		os.Exit(1)
 	}
 	cronScheduler.Start()
+	log.Info("Waiting for future scheduled updates")
 
 	// We'll wait here until we receive a signal
 	c := make(chan os.Signal, 1)
