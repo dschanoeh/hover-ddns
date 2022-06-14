@@ -22,7 +22,8 @@ It doesn't do anything beyond that and if you need more features or different se
   * Using the ipify API
   * Issuing OpenDNS DNS queries
   * Extracting the address from a local network interface
-* Cron syntax can be used to schedule periodic updates
+* Cron syntax can be used to schedule periodic updates (first update will always
+  be immediate after start)
 * Multiple domains and hostnames can be specified. All will be updated with the same IP address info
 
 ## Usage
