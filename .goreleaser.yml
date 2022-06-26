@@ -45,13 +45,14 @@ nfpms:
     maintainer: Jan-Niklas Meier <jan@jansblog.org>
     description: A Dynamic DNS client for the unofficial Hover API.
     license: Apache 2.0
+    bindir: /usr/bin
     formats:
       - deb
     contents:
       - src: example.yaml
         dst: /etc/hover-ddns.yaml
         type: config
-      - src: systemd/hover-ddns.service
+      - src: systemd/hover-ddns-packaged.service
         dst: /etc/systemd/system/hover-ddns.service
         type: config
     scripts:

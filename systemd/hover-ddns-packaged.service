@@ -1,0 +1,11 @@
+[Unit]
+Description=Hover DDNS Updater
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/hover-ddns --config /etc/hover-ddns.yaml
+
+[Install]
+WantedBy=multi-user.target
