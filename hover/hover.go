@@ -132,8 +132,11 @@ func Login(username string, password string) (*HoverAuth, error) {
 	log.Info("Getting Hover auth cookie...")
 	// Get session cookie
 	resp, err := http.Get(signinURL)
+	if err != nil {
+		return nil, errors.New("Failed to get session cookie: " + err.Error())
+	}
 	if resp.StatusCode != 200 {
-		return nil, errors.New("Received sessionstatus code " + strconv.Itoa(resp.StatusCode))
+		return nil, errors.New("Failed to get session cookie: HTTP " + strconv.Itoa(resp.StatusCode))
 	}
 	for _, cookie := range resp.Cookies() {
 		log.Debug("Found cookie: ", cookie.Name)
