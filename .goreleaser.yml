@@ -70,3 +70,24 @@ release:
   github:
     owner: dschanoeh
     name: hover-ddns
+dockers:
+  - image_templates:
+      - "dschanoeh/{{ .ProjectName }}:{{ .Version }}-amd64"
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/amd64
+  - image_templates:
+      - "dschanoeh/{{ .ProjectName }}:{{ .Version }}-arm64"
+    use: buildx
+    goarch: arm64
+    build_flag_templates:
+      - --platform=linux/arm64/v8
+docker_manifests:
+  - name_template: 'dschanoeh/{{ .ProjectName }}:{{ .Version }}'
+    image_templates:
+      - 'dschanoeh/{{ .ProjectName }}:{{ .Version }}-amd64'
+      - 'dschanoeh/{{ .ProjectName }}:{{ .Version }}-arm64'
+  - name_template: 'dschanoeh/{{ .ProjectName }}:latest'
+    image_templates:
+      - 'dschanoeh/{{ .ProjectName }}:{{ .Version }}-amd64'
+      - 'dschanoeh/{{ .ProjectName }}:{{ .Version }}-arm64'
