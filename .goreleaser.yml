@@ -53,8 +53,7 @@ nfpms:
         dst: /etc/hover-ddns.yaml
         type: config
       - src: systemd/hover-ddns-packaged.service
-        dst: /etc/systemd/system/hover-ddns.service
-        type: config
+        dst: /lib/systemd/system/hover-ddns.service
     scripts:
       postinstall: scripts/postinstall.sh
 checksum:
