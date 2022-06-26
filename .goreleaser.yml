@@ -34,7 +34,7 @@ archives:
       amd64: x86_64
     files:
       - example.yaml
-      - systemd/*
+      - systemd/hover-ddns.service
 nfpms:
   - builds:
       - "linux"
