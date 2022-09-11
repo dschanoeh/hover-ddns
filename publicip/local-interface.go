@@ -19,24 +19,24 @@ func NewLocalInterfaceLookupProvider(interfaceName string) *LocalInterfaceLookup
 	return &r
 }
 
-// GetPublicIP returns the current public IP or nil if an error occured
+// GetPublicIP returns the current public IP or nil if an error occurred
 func (r *LocalInterfaceLookupProvider) GetPublicIP() (net.IP, error) {
-	return r.doSearch(false)
+	return r.getAddress(false)
 }
 
 func (r *LocalInterfaceLookupProvider) GetPublicIPv6() (net.IP, error) {
-	return r.doSearch(true)
+	return r.getAddress(true)
 }
 
-func (r *LocalInterfaceLookupProvider) doSearch(v6 bool) (net.IP, error) {
+func (r *LocalInterfaceLookupProvider) getAddress(v6 bool) (net.IP, error) {
 	ip := net.IP{}
 	found := false
 
-	ifaces, err := net.Interfaces()
+	interfaces, err := net.Interfaces()
 	if err != nil {
 		return nil, err
 	}
-	for _, i := range ifaces {
+	for _, i := range interfaces {
 		if i.Name == r.interfaceName {
 			log.Debug("Found interface " + i.Name)
 			addrs, err := i.Addrs()
@@ -47,7 +47,8 @@ func (r *LocalInterfaceLookupProvider) doSearch(v6 bool) (net.IP, error) {
 				log.Debug("Looking at address " + addr.String())
 				switch v := addr.(type) {
 				case *net.IPNet:
-					if v6 && (v.IP.IsGlobalUnicast() && len(v.IP) == net.IPv6len) || !v6 && (v.IP.IsGlobalUnicast() && len(v.IP) == net.IPv4len) {
+					if v6 && (v.IP.IsGlobalUnicast() && len(v.IP) == net.IPv6len) ||
+						!v6 && (v.IP.IsGlobalUnicast() && len(v.IP) == net.IPv4len) {
 						log.Debug("This is our address!")
 						ip = v.IP
 						found = true
@@ -55,7 +56,7 @@ func (r *LocalInterfaceLookupProvider) doSearch(v6 bool) (net.IP, error) {
 					}
 					continue
 				default:
-					log.Warn("Received an address type that this code doesn't handle")
+					log.Warn("Skipping address type that hover-ddns doesn't understand")
 				}
 				if found {
 					break
@@ -64,8 +65,9 @@ func (r *LocalInterfaceLookupProvider) doSearch(v6 bool) (net.IP, error) {
 		}
 	}
 
-	if found {
-		return ip, nil
+	if !found {
+		return nil, errors.New("was not able to find IP address on interface '" + r.interfaceName + "'")
 	}
-	return nil, errors.New("Was not able to find IP address on interface '" + r.interfaceName + "'")
+
+	return ip, nil
 }
