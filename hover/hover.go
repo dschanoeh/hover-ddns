@@ -154,7 +154,7 @@ func Login(username string, password string) (*HoverAuth, error) {
 	values := map[string]string{"username": username, "password": password}
 	jsonStr, _ := json.Marshal(values)
 
-	req, err := http.NewRequest("POST", HoverAuthUrl, bytes.NewBuffer(jsonStr))
+	req, err := http.NewRequest(http.MethodPost, HoverAuthUrl, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func Login(username string, password string) (*HoverAuth, error) {
 }
 
 func getDomainID(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainName string) (string, error) {
-	req, err := http.NewRequest("GET", HoverDomainsUrl, nil)
+	req, err := http.NewRequest(http.MethodGet, HoverDomainsUrl, nil)
 	if err != nil {
 		return "", err
 	}
@@ -241,7 +241,7 @@ func getDomainID(client *http.Client, sessionCookie http.Cookie, authCookie http
 
 func getRecordID(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, recordType string) (string, error) {
 	recordsURL := HoverDomainsUrl + domainID + "/dns"
-	req, err := http.NewRequest("GET", recordsURL, nil)
+	req, err := http.NewRequest(http.MethodGet, recordsURL, nil)
 	if err != nil {
 		return "", err
 	}
@@ -302,7 +302,7 @@ func createRecord(client *http.Client, sessionCookie http.Cookie, authCookie htt
 	recordPostURL := HoverDomainsUrl + domainID + "/dns"
 	log.Debug("Creating record: " + string(jsonStr))
 
-	req, err := http.NewRequest("POST", recordPostURL, bytes.NewBuffer(jsonStr))
+	req, err := http.NewRequest(http.MethodPost, recordPostURL, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		return err
 	}
@@ -329,7 +329,7 @@ func createRecord(client *http.Client, sessionCookie http.Cookie, authCookie htt
 
 func deleteRecord(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, identifier string) error {
 	url := HoverDnsUrl + identifier
-	req, err := http.NewRequest("DELETE", url, nil)
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		return err
 	}
