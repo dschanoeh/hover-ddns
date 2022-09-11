@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -169,7 +169,7 @@ func Login(username string, password string) (*HoverAuth, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := ioutil.ReadAll(resp.Body)
+		bodyBytes, _ := io.ReadAll(resp.Body)
 		log.Debug(string(bodyBytes))
 		return nil, errors.New("Received status code " + strconv.Itoa(resp.StatusCode))
 	}
@@ -212,7 +212,7 @@ func getDomainID(client *http.Client, sessionCookie http.Cookie, authCookie http
 
 	defer resp.Body.Close()
 
-	domainsBodyBytes, _ := ioutil.ReadAll(resp.Body)
+	domainsBodyBytes, _ := io.ReadAll(resp.Body)
 	log.Debug(string(domainsBodyBytes))
 
 	var result DomainEnvelope
@@ -260,7 +260,7 @@ func getRecordID(client *http.Client, sessionCookie http.Cookie, authCookie http
 
 	defer recordResp.Body.Close()
 
-	bodyBytes, _ := ioutil.ReadAll(recordResp.Body)
+	bodyBytes, _ := io.ReadAll(recordResp.Body)
 	log.Debug(string(bodyBytes))
 
 	var recordsResult RecordEnvelope
@@ -317,7 +317,7 @@ func createRecord(client *http.Client, sessionCookie http.Cookie, authCookie htt
 	}
 	defer recordPostResponse.Body.Close()
 
-	recordPostResponseBodyBytes, _ := ioutil.ReadAll(recordPostResponse.Body)
+	recordPostResponseBodyBytes, _ := io.ReadAll(recordPostResponse.Body)
 	log.Debug(string(recordPostResponseBodyBytes))
 
 	if recordPostResponse.StatusCode != 200 {

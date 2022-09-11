@@ -2,7 +2,7 @@ package publicip
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -50,7 +50,7 @@ func (r *IpifyLookupProvider) GetPublicIP() (net.IP, error) {
 
 	defer resp.Body.Close()
 
-	ipBytes, err := ioutil.ReadAll(resp.Body)
+	ipBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}

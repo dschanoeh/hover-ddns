@@ -4,7 +4,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
@@ -277,7 +276,7 @@ func hostNeedsUpdating(domain string, hostName string, publicV4 net.IP, publicV6
 }
 
 func loadConfig(filename string, config *Config) error {
-	yamlFile, err := ioutil.ReadFile(filename)
+	yamlFile, err := os.ReadFile(filename)
 	if err != nil {
 		return err
 	}
