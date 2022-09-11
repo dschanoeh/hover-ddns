@@ -20,13 +20,11 @@ type LookupProvider interface {
 // NewLookupProvider creates a new lookup provider from a given configuration
 func NewLookupProvider(config *LookupProviderConfig) (LookupProvider, error) {
 	switch config.Service {
-	case "opendns":
-		return NewOpenDNSLookupProvider(), nil
 	case "ipify":
 		return NewIpifyLookupProvider(), nil
 	case "local_interface":
 		if config.InterfaceName == "" {
-			return nil, errors.New("For the local_interface service, an interface_name must be provided")
+			return nil, errors.New("for the local_interface service, an interface_name must be provided")
 		}
 		return NewLocalInterfaceLookupProvider(config.InterfaceName), nil
 	default:
