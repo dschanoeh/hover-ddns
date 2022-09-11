@@ -13,6 +13,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	HoverSigninUrl  = "https://www.hover.com/signin"
+	HoverAuthUrl    = "https://www.hover.com/api/login"
+	HoverDomainsUrl = "https://www.hover.com/api/domains/"
+	HoverDnsUrl     = "https://www.hover.com/api/dns/"
+	RecordTTL       = 3600
+)
+
 type DomainEnvelope struct {
 	Succeeded bool `json:"succeeded"`
 	Domains   []Domain
@@ -121,17 +129,12 @@ func updateSingleRecord(client *http.Client, sessionCookie http.Cookie, authCook
 }
 
 func Login(username string, password string) (*HoverAuth, error) {
-
-	signinURL := "https://www.hover.com/signin"
-	authURL := "https://www.hover.com/api/login"
-
 	client := &http.Client{}
 	sessionCookie := http.Cookie{}
-	authCookie := http.Cookie{}
 
 	log.Info("Getting Hover auth cookie...")
 	// Get session cookie
-	resp, err := http.Get(signinURL)
+	resp, err := http.Get(HoverSigninUrl)
 	if err != nil {
 		return nil, errors.New("Failed to get session cookie: " + err.Error())
 	}
@@ -151,7 +154,7 @@ func Login(username string, password string) (*HoverAuth, error) {
 	values := map[string]string{"username": username, "password": password}
 	jsonStr, _ := json.Marshal(values)
 
-	req, err := http.NewRequest("POST", authURL, bytes.NewBuffer(jsonStr))
+	req, err := http.NewRequest("POST", HoverAuthUrl, bytes.NewBuffer(jsonStr))
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +180,7 @@ func Login(username string, password string) (*HoverAuth, error) {
 	for _, cookie := range resp.Cookies() {
 		// Response returns two hoverauth cookies, the first having no value
 		if cookie.Name == "hoverauth" && cookie.Value != "" {
-			authCookie = *cookie
+			authCookie := *cookie
 			var auth = HoverAuth{
 				AuthCookie:    authCookie,
 				SessionCookie: sessionCookie,
@@ -190,9 +193,7 @@ func Login(username string, password string) (*HoverAuth, error) {
 }
 
 func getDomainID(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainName string) (string, error) {
-	domainsURL := "https://www.hover.com/api/domains/"
-
-	req, err := http.NewRequest("GET", domainsURL, nil)
+	req, err := http.NewRequest("GET", HoverDomainsUrl, nil)
 	if err != nil {
 		return "", err
 	}
@@ -239,7 +240,7 @@ func getDomainID(client *http.Client, sessionCookie http.Cookie, authCookie http
 }
 
 func getRecordID(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, recordType string) (string, error) {
-	recordsURL := "https://www.hover.com/api/domains/" + domainID + "/dns"
+	recordsURL := HoverDomainsUrl + domainID + "/dns"
 	req, err := http.NewRequest("GET", recordsURL, nil)
 	if err != nil {
 		return "", err
@@ -286,18 +287,19 @@ func getRecordID(client *http.Client, sessionCookie http.Cookie, authCookie http
 }
 
 func createRecord(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, address string, recordType string) error {
-	r := CreateRecord{}
-	r.Content = address
-	r.Name = hostName
-	r.TTL = 3600
-	r.Type = recordType
+	r := CreateRecord{
+		Content: address,
+		Name:    hostName,
+		TTL:     RecordTTL,
+		Type:    recordType,
+	}
 
 	jsonStr, err := json.Marshal(r)
 	if err != nil {
 		return err
 	}
 
-	recordPostURL := "https://www.hover.com/api/domains/" + domainID + "/dns"
+	recordPostURL := HoverDomainsUrl + domainID + "/dns"
 	log.Debug("Creating record: " + string(jsonStr))
 
 	req, err := http.NewRequest("POST", recordPostURL, bytes.NewBuffer(jsonStr))
@@ -326,7 +328,7 @@ func createRecord(client *http.Client, sessionCookie http.Cookie, authCookie htt
 }
 
 func deleteRecord(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, identifier string) error {
-	url := "https://www.hover.com/api/dns/" + identifier
+	url := HoverDnsUrl + identifier
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		return err
