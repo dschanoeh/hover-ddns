@@ -22,6 +22,8 @@ func NewLookupProvider(config *LookupProviderConfig) (LookupProvider, error) {
 	switch config.Service {
 	case "ipify":
 		return NewIpifyLookupProvider(), nil
+	case "amazon":
+		return NewAmazonLookupProvider(), nil
 	case "local_interface":
 		if config.InterfaceName == "" {
 			return nil, errors.New("for the local_interface service, an interface_name must be provided")

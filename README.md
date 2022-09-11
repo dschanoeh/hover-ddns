@@ -20,6 +20,7 @@ It doesn't do anything beyond that and if you need more features or different se
 * IPv4 and IPv6 supported
 * Supports public IP lookup by:
   * Using the ipify API
+  * Using Amazon's checkip API
   * Extracting the address from a local network interface
 * Cron syntax can be used to schedule periodic updates (first update will always
   be immediate after start)
@@ -39,7 +40,14 @@ have the following options:
       service: ipify
     ```
 
-2. Extract the addresses  from a local WAN interface:
+2. Use the Amazon API:
+
+    ```yaml
+    public_ip_provider:
+      service: amazon
+    ```
+
+3. Extract the addresses  from a local WAN interface:
 
     ```yaml
     public_ip_provider:
