@@ -1,0 +1,13 @@
+version: "2"
+
+services:
+  hover-ddns:
+    image: dschanoeh/hover-ddns:latest
+    container_name: hover-ddns
+    restart: unless-stopped
+    user: "1000:1000"
+    mem_limit: 128m
+    volumes:
+      - ./hover-ddns.yaml:/hover-ddns.yaml
+    # Optional if you want to pass options
+    entrypoint: ["/hover-ddns", "--config", "hover-ddns.yaml", "--verbose"]

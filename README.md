@@ -2,6 +2,7 @@
 
 ![Build status](https://github.com/dschanoeh/hover-ddns/workflows/build/badge.svg)
 ![License](https://img.shields.io/github/license/dschanoeh/hover-ddns)
+![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/dschanoeh/hover-ddns)
 
 hover-ddns is a DDNS client that will update DNS A and/or AAAA records at hover with the current public IP address(es) of the machine.
 
@@ -72,6 +73,9 @@ or use the provided systemd service file:
     $ sudo systemctl start hover-ddns.service
 
 ## Installation
+
+### Docker
+Docker images for amd64 and arm64 are provided under [dschanoeh/hover-ddns](https://hub.docker.com/repository/docker/dschanoeh/hover-ddns). See [docker-compose.yaml](docker-compose.yaml) for a minimal configuration to get started.
 
 ### Debian-based Linux Distributions
 
