@@ -19,8 +19,9 @@ It doesn't do anything beyond that and if you need more features or different se
 
 * IPv4 and IPv6 supported
 * Supports public IP lookup by:
-  * Using the ipify API
-  * Using Amazon's checkip API
+  * Using the ipify API (v4 only)
+  * Using Amazon's checkip API (v4 only)
+  * Using icanhazip.com (v4 and v6)
   * Extracting the address from a local network interface
 * Cron syntax can be used to schedule periodic updates (first update will always
   be immediate after start)
@@ -47,7 +48,14 @@ have the following options:
       service: amazon
     ```
 
-3. Extract the addresses  from a local WAN interface:
+3. Use icanhazip:
+
+    ```yaml
+    public_ip_provider:
+      service: icanhazip
+    ```
+
+4. Extract the addresses  from a local WAN interface:
 
     ```yaml
     public_ip_provider:

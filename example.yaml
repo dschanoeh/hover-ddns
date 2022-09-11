@@ -15,4 +15,4 @@ dns_server: "8.8.8.8:53"
 # Set to true to update even if the IP already is up to date
 force_update: false
 public_ip_provider:
-  service: ipify
+  service: icanhazip

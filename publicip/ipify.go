@@ -29,7 +29,6 @@ func NewIpifyLookupProvider() *IpifyLookupProvider {
 
 // GetPublicIP returns the current public IP or nil if an error occured
 func (r *IpifyLookupProvider) GetPublicIP() (net.IP, error) {
-	ip := net.IP{}
 	var resp *http.Response
 
 	for i := 0; i < numOfRetries; i++ {
@@ -45,7 +44,7 @@ func (r *IpifyLookupProvider) GetPublicIP() (net.IP, error) {
 	}
 
 	if resp == nil {
-		return nil, errors.New("Was not able to get a valid response")
+		return nil, errors.New("was not able to get a valid response")
 	}
 
 	defer resp.Body.Close()
@@ -57,7 +56,7 @@ func (r *IpifyLookupProvider) GetPublicIP() (net.IP, error) {
 
 	ipString := string(ipBytes)
 
-	ip = net.ParseIP(ipString)
+	ip := net.ParseIP(ipString)
 	if ip == nil {
 		return nil, errors.New("'" + ipString + "' is not a valid IP address.")
 	}
@@ -66,7 +65,7 @@ func (r *IpifyLookupProvider) GetPublicIP() (net.IP, error) {
 }
 
 func (r *IpifyLookupProvider) GetPublicIPv6() (net.IP, error) {
-	return nil, errors.New("Provider doesn't support IPv6 yet")
+	return nil, errors.New("provider doesn't support IPv6 yet")
 }
 
 func (r *IpifyLookupProvider) getResponse() (*http.Response, error) {
