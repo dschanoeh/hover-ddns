@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"strconv"
 
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -59,39 +58,48 @@ type HoverAuth struct {
 	AuthCookie    http.Cookie
 }
 
+type HoverClient struct {
+	logger *zap.SugaredLogger
+}
+
+func NewClient(logger *zap.Logger) *HoverClient {
+	client := HoverClient{logger: logger.Sugar()}
+	return &client
+}
+
 // Update tries to update the DNS record for hostName with the provided IP(s).
 // Provide nil for any of the addresses if that record shouldn't get updated
-func Update(auth *HoverAuth, domainName string, hostName string, ip4 net.IP, ip6 net.IP) error {
+func (c *HoverClient) Update(auth *HoverAuth, domainName string, hostName string, ip4 net.IP, ip6 net.IP) error {
 	client := &http.Client{}
 
 	if auth == nil {
 		return errors.New("no auth session was provided")
 	}
 
-	domainID, err := getDomainID(client, auth.SessionCookie, auth.AuthCookie, domainName)
+	domainID, err := c.getDomainID(client, auth.SessionCookie, auth.AuthCookie, domainName)
 	if err != nil {
-		log.Error("Failed to get domain ID: ", err)
+		c.logger.Errorf("Failed to get domain ID: %s", err)
 		return err
 	}
-	log.Infof("Found domain ID %s for domain %s", domainID, domainName)
+	c.logger.Infof("Found domain ID %s for domain %s", domainID, domainName)
 
 	if ip4 != nil {
 		if ip4.To4() == nil {
-			log.Error(fmt.Sprintf("Not updating invalid address '%s'", ip4.String()))
+			c.logger.Errorf("Not updating invalid address '%s'", ip4.String())
 		} else {
-			err = updateSingleRecord(client, auth.SessionCookie, auth.AuthCookie, domainID, hostName, ip4.String(), "A")
+			err = c.updateSingleRecord(client, auth.SessionCookie, auth.AuthCookie, domainID, hostName, ip4.String(), "A")
 			if err != nil {
-				log.Error("Was not able to update IPv4 record:", err)
+				c.logger.Errorf("Was not able to update IPv4 record: %s", err)
 			}
 		}
 	}
 	if ip6 != nil {
 		if ip6.To16() == nil {
-			log.Error(fmt.Sprintf("Not updating invalid address '%s'", ip4.String()))
+			c.logger.Errorf("Not updating invalid address '%s'", ip4.String())
 		} else {
-			err = updateSingleRecord(client, auth.SessionCookie, auth.AuthCookie, domainID, hostName, ip6.String(), "AAAA")
+			err = c.updateSingleRecord(client, auth.SessionCookie, auth.AuthCookie, domainID, hostName, ip6.String(), "AAAA")
 			if err != nil {
-				log.Error("Was not able to update IPv6 record:", err)
+				c.logger.Errorf("Was not able to update IPv6 record: %s", err)
 			}
 		}
 	}
@@ -99,40 +107,40 @@ func Update(auth *HoverAuth, domainName string, hostName string, ip4 net.IP, ip6
 	return nil
 }
 
-func updateSingleRecord(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, ip string, recordType string) error {
-	recordID, err := getRecordID(client, sessionCookie, authCookie, domainID, hostName, recordType)
+func (c *HoverClient) updateSingleRecord(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, ip string, recordType string) error {
+	recordID, err := c.getRecordID(client, sessionCookie, authCookie, domainID, hostName, recordType)
 	if err != nil {
-		log.Error("Error getting record ID: ", err)
+		c.logger.Errorf("Error getting record ID: %s", err)
 		return err
 	}
 
 	// Record exists, so we need to delete it before creating a new one
 	if !(recordID == "") {
-		log.Infof("Found existing record ID %s for host name %s and type %s", domainID, hostName, recordType)
-		log.Info("Deleting existing record...")
-		err = deleteRecord(client, sessionCookie, authCookie, recordID)
+		c.logger.Infof("Found existing record ID %s for host name %s and type %s", domainID, hostName, recordType)
+		c.logger.Info("Deleting existing record...")
+		err = c.deleteRecord(client, sessionCookie, authCookie, recordID)
 		if err != nil {
-			log.Error("Was not able to delete existing record: ", err)
+			c.logger.Errorf("Was not able to delete existing record: %s", err)
 			return err
 		}
 	}
 
 	// Create new record
-	log.Infof("Creating new record of type '%s' and IP '%s'...", recordType, ip)
-	err = createRecord(client, sessionCookie, authCookie, domainID, hostName, ip, recordType)
+	c.logger.Infof("Creating new record of type '%s' and IP '%s'...", recordType, ip)
+	err = c.createRecord(client, sessionCookie, authCookie, domainID, hostName, ip, recordType)
 	if err != nil {
-		log.Error("Was not able to create new record: ", err)
+		c.logger.Errorf("Was not able to create new record: %s ", err)
 		return err
 	}
 
 	return nil
 }
 
-func Login(username string, password string) (*HoverAuth, error) {
+func (c *HoverClient) Login(username string, password string) (*HoverAuth, error) {
 	client := &http.Client{}
 	sessionCookie := http.Cookie{}
 
-	log.Info("Getting Hover auth cookie...")
+	c.logger.Info("Getting Hover auth cookie...")
 	// Get session cookie
 	resp, err := http.Get(HoverSigninUrl)
 	if err != nil {
@@ -142,9 +150,9 @@ func Login(username string, password string) (*HoverAuth, error) {
 		return nil, errors.New("Failed to get session cookie: HTTP " + strconv.Itoa(resp.StatusCode))
 	}
 	for _, cookie := range resp.Cookies() {
-		log.Debug("Found cookie: ", cookie.Name)
+		c.logger.Debugf("Found cookie: %s", cookie.Name)
 		if cookie.Name == "hover_session" {
-			log.Debug("got session cookie")
+			c.logger.Debug("got session cookie")
 			sessionCookie = *cookie
 			break
 		}
@@ -170,7 +178,7 @@ func Login(username string, password string) (*HoverAuth, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		log.Debug(string(bodyBytes))
+		c.logger.Debug(string(bodyBytes))
 		return nil, errors.New("Received status code " + strconv.Itoa(resp.StatusCode))
 	}
 	if err != nil {
@@ -192,7 +200,7 @@ func Login(username string, password string) (*HoverAuth, error) {
 	return nil, errors.New("didn't receive a hoverauth cookie")
 }
 
-func getDomainID(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainName string) (string, error) {
+func (c *HoverClient) getDomainID(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainName string) (string, error) {
 	req, err := http.NewRequest(http.MethodGet, HoverDomainsUrl, nil)
 	if err != nil {
 		return "", err
@@ -213,7 +221,7 @@ func getDomainID(client *http.Client, sessionCookie http.Cookie, authCookie http
 	defer resp.Body.Close()
 
 	domainsBodyBytes, _ := io.ReadAll(resp.Body)
-	log.Debug(string(domainsBodyBytes))
+	c.logger.Debug(string(domainsBodyBytes[:]))
 
 	var result DomainEnvelope
 	err = json.Unmarshal(domainsBodyBytes, &result)
@@ -239,7 +247,7 @@ func getDomainID(client *http.Client, sessionCookie http.Cookie, authCookie http
 	return domainID, nil
 }
 
-func getRecordID(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, recordType string) (string, error) {
+func (c *HoverClient) getRecordID(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, recordType string) (string, error) {
 	recordsURL := HoverDomainsUrl + domainID + "/dns"
 	req, err := http.NewRequest(http.MethodGet, recordsURL, nil)
 	if err != nil {
@@ -261,7 +269,7 @@ func getRecordID(client *http.Client, sessionCookie http.Cookie, authCookie http
 	defer recordResp.Body.Close()
 
 	bodyBytes, _ := io.ReadAll(recordResp.Body)
-	log.Debug(string(bodyBytes))
+	c.logger.Debug(string(bodyBytes))
 
 	var recordsResult RecordEnvelope
 	err = json.Unmarshal(bodyBytes, &recordsResult)
@@ -270,14 +278,14 @@ func getRecordID(client *http.Client, sessionCookie http.Cookie, authCookie http
 		return "", err
 	}
 
-	log.Debug(fmt.Sprintf("%+v\n", recordsResult))
+	c.logger.Debugf("%+v\n", recordsResult)
 	if !recordsResult.Succeeded || len(recordsResult.Domains) != 1 {
 		return "", errors.New("records request failed")
 	}
 
 	recordID := ""
 	for _, record := range recordsResult.Domains[0].Records {
-		log.Debug(fmt.Sprintf("Record: %s %s %s", record.Name, record.Type, record.Content))
+		c.logger.Debugf("Record: %s %s %s", record.Name, record.Type, record.Content)
 		if record.Name == hostName && record.Type == recordType {
 			recordID = record.ID
 		}
@@ -286,7 +294,7 @@ func getRecordID(client *http.Client, sessionCookie http.Cookie, authCookie http
 	return recordID, nil
 }
 
-func createRecord(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, address string, recordType string) error {
+func (c *HoverClient) createRecord(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, address string, recordType string) error {
 	r := CreateRecord{
 		Content: address,
 		Name:    hostName,
@@ -300,7 +308,7 @@ func createRecord(client *http.Client, sessionCookie http.Cookie, authCookie htt
 	}
 
 	recordPostURL := HoverDomainsUrl + domainID + "/dns"
-	log.Debug("Creating record: " + string(jsonStr))
+	c.logger.Debugf("Creating record: %s", string(jsonStr))
 
 	req, err := http.NewRequest(http.MethodPost, recordPostURL, bytes.NewBuffer(jsonStr))
 	if err != nil {
@@ -318,7 +326,7 @@ func createRecord(client *http.Client, sessionCookie http.Cookie, authCookie htt
 	defer recordPostResponse.Body.Close()
 
 	recordPostResponseBodyBytes, _ := io.ReadAll(recordPostResponse.Body)
-	log.Debug(string(recordPostResponseBodyBytes))
+	c.logger.Debug(string(recordPostResponseBodyBytes))
 
 	if recordPostResponse.StatusCode != 200 {
 		return errors.New("Received status code " + strconv.Itoa(recordPostResponse.StatusCode))
@@ -327,7 +335,7 @@ func createRecord(client *http.Client, sessionCookie http.Cookie, authCookie htt
 	return nil
 }
 
-func deleteRecord(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, identifier string) error {
+func (c *HoverClient) deleteRecord(client *http.Client, sessionCookie http.Cookie, authCookie http.Cookie, identifier string) error {
 	url := HoverDnsUrl + identifier
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {

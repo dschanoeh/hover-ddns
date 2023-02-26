@@ -4,18 +4,19 @@ import (
 	"errors"
 	"net"
 
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // LocalInterfaceLookupProvider is a lookup provider that will extract the public IP address from
 // a given interface
 type LocalInterfaceLookupProvider struct {
 	interfaceName string
+	logger        zap.SugaredLogger
 }
 
 // NewLocalInterfaceLookupProvider creates a new lookup provider
-func NewLocalInterfaceLookupProvider(interfaceName string) *LocalInterfaceLookupProvider {
-	r := LocalInterfaceLookupProvider{interfaceName}
+func NewLocalInterfaceLookupProvider(logger *zap.Logger, interfaceName string) *LocalInterfaceLookupProvider {
+	r := LocalInterfaceLookupProvider{interfaceName: interfaceName, logger: *logger.Sugar()}
 	return &r
 }
 
@@ -38,25 +39,25 @@ func (r *LocalInterfaceLookupProvider) getAddress(v6 bool) (net.IP, error) {
 	}
 	for _, i := range interfaces {
 		if i.Name == r.interfaceName {
-			log.Debug("Found interface " + i.Name)
+			r.logger.Debug("Found interface " + i.Name)
 			addrs, err := i.Addrs()
 			if err != nil {
 				return nil, err
 			}
 			for _, addr := range addrs {
-				log.Debug("Looking at address " + addr.String())
+				r.logger.Debug("Looking at address " + addr.String())
 				switch v := addr.(type) {
 				case *net.IPNet:
 					if v6 && (v.IP.IsGlobalUnicast() && len(v.IP) == net.IPv6len) ||
 						!v6 && (v.IP.IsGlobalUnicast() && len(v.IP) == net.IPv4len) {
-						log.Debug("This is our address!")
+						r.logger.Debug("This is our address!")
 						ip = v.IP
 						found = true
 						break
 					}
 					continue
 				default:
-					log.Warn("Skipping address type that hover-ddns doesn't understand")
+					r.logger.Warn("Skipping address type that hover-ddns doesn't understand")
 				}
 				if found {
 					break

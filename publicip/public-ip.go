@@ -3,6 +3,8 @@ package publicip
 import (
 	"errors"
 	"net"
+
+	"go.uber.org/zap"
 )
 
 // LookupProviderConfig is a configuration from which a lookup provider can be selected and configured
@@ -18,10 +20,10 @@ type LookupProvider interface {
 }
 
 // NewLookupProvider creates a new lookup provider from a given configuration
-func NewLookupProvider(config *LookupProviderConfig) (LookupProvider, error) {
+func NewLookupProvider(logger *zap.Logger, config *LookupProviderConfig) (LookupProvider, error) {
 	switch config.Service {
 	case "ipify":
-		return NewIpifyLookupProvider(), nil
+		return NewIpifyLookupProvider(logger), nil
 	case "amazon":
 		return NewAmazonLookupProvider(), nil
 	case "icanhazip":
@@ -30,7 +32,7 @@ func NewLookupProvider(config *LookupProviderConfig) (LookupProvider, error) {
 		if config.InterfaceName == "" {
 			return nil, errors.New("for the local_interface service, an interface_name must be provided")
 		}
-		return NewLocalInterfaceLookupProvider(config.InterfaceName), nil
+		return NewLocalInterfaceLookupProvider(logger, config.InterfaceName), nil
 	default:
 		return nil, errors.New("'" + config.Service + "' is not a valid service")
 	}

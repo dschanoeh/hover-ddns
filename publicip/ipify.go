@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 const (
@@ -20,11 +20,12 @@ const (
 
 // IpifyLookupProvider is a public IP lookup provider using the ipify.org API
 type IpifyLookupProvider struct {
+	logger *zap.SugaredLogger
 }
 
 // NewIpifyLookupProvider creates a new Ipify lookup provider
-func NewIpifyLookupProvider() *IpifyLookupProvider {
-	return &IpifyLookupProvider{}
+func NewIpifyLookupProvider(logger *zap.Logger) *IpifyLookupProvider {
+	return &IpifyLookupProvider{logger: logger.Sugar()}
 }
 
 // GetPublicIP returns the current public IP or nil if an error occured
@@ -38,7 +39,7 @@ func (r *IpifyLookupProvider) GetPublicIP() (net.IP, error) {
 			resp = ret
 			break
 		} else {
-			log.Warn("Request failed: ", err)
+			r.logger.Warn("Request failed: ", err)
 			time.Sleep(timeout * time.Millisecond)
 		}
 	}
