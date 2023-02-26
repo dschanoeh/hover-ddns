@@ -60,8 +60,10 @@ type HoverAuth struct {
 }
 
 type HoverClient struct {
-	logger     *zap.SugaredLogger
-	httpClient *http.Client
+	logger        *zap.SugaredLogger
+	httpClient    *http.Client
+	sessionCookie *http.Cookie
+	authCookie    *http.Cookie
 }
 
 func NewClient(logger *zap.Logger) *HoverClient {
@@ -82,14 +84,33 @@ func NewClient(logger *zap.Logger) *HoverClient {
 	return &client
 }
 
+func (c *HoverClient) IsAuthenticated() bool {
+	if c == nil {
+		return false
+	}
+	if c.sessionCookie == nil || c.authCookie == nil {
+		return false
+	}
+
+	if c.sessionCookie.Expires.Before(time.Now()) {
+		return false
+	}
+
+	if c.authCookie.Expires.Before(time.Now()) {
+		return false
+	}
+
+	return true
+}
+
 // Update tries to update the DNS record for hostName with the provided IP(s).
 // Provide nil for any of the addresses if that record shouldn't get updated
-func (c *HoverClient) Update(auth *HoverAuth, domainName string, hostName string, ip4 net.IP, ip6 net.IP) error {
-	if auth == nil {
+func (c *HoverClient) Update(domainName string, hostName string, ip4 net.IP, ip6 net.IP) error {
+	if !c.IsAuthenticated() {
 		return errors.New("no auth session was provided")
 	}
 
-	domainID, err := c.getDomainID(auth.SessionCookie, auth.AuthCookie, domainName)
+	domainID, err := c.getDomainID(domainName)
 	if err != nil {
 		c.logger.Errorf("Failed to get domain ID: %s", err)
 		return err
@@ -100,7 +121,7 @@ func (c *HoverClient) Update(auth *HoverAuth, domainName string, hostName string
 		if ip4.To4() == nil {
 			c.logger.Errorf("Not updating invalid address '%s'", ip4.String())
 		} else {
-			err = c.updateSingleRecord(auth.SessionCookie, auth.AuthCookie, domainID, hostName, ip4.String(), "A")
+			err = c.updateSingleRecord(domainID, hostName, ip4.String(), "A")
 			if err != nil {
 				c.logger.Errorf("Was not able to update IPv4 record: %s", err)
 			}
@@ -110,7 +131,7 @@ func (c *HoverClient) Update(auth *HoverAuth, domainName string, hostName string
 		if ip6.To16() == nil {
 			c.logger.Errorf("Not updating invalid address '%s'", ip4.String())
 		} else {
-			err = c.updateSingleRecord(auth.SessionCookie, auth.AuthCookie, domainID, hostName, ip6.String(), "AAAA")
+			err = c.updateSingleRecord(domainID, hostName, ip6.String(), "AAAA")
 			if err != nil {
 				c.logger.Errorf("Was not able to update IPv6 record: %s", err)
 			}
@@ -120,8 +141,8 @@ func (c *HoverClient) Update(auth *HoverAuth, domainName string, hostName string
 	return nil
 }
 
-func (c *HoverClient) updateSingleRecord(sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, ip string, recordType string) error {
-	recordID, err := c.getRecordID(sessionCookie, authCookie, domainID, hostName, recordType)
+func (c *HoverClient) updateSingleRecord(domainID string, hostName string, ip string, recordType string) error {
+	recordID, err := c.getRecordID(domainID, hostName, recordType)
 	if err != nil {
 		c.logger.Errorf("Error getting record ID: %s", err)
 		return err
@@ -131,7 +152,7 @@ func (c *HoverClient) updateSingleRecord(sessionCookie http.Cookie, authCookie h
 	if !(recordID == "") {
 		c.logger.Infof("Found existing record ID %s for host name %s and type %s", domainID, hostName, recordType)
 		c.logger.Info("Deleting existing record...")
-		err = c.deleteRecord(sessionCookie, authCookie, recordID)
+		err = c.deleteRecord(recordID)
 		if err != nil {
 			c.logger.Errorf("Was not able to delete existing record: %s", err)
 			return err
@@ -140,7 +161,7 @@ func (c *HoverClient) updateSingleRecord(sessionCookie http.Cookie, authCookie h
 
 	// Create new record
 	c.logger.Infof("Creating new record of type '%s' and IP '%s'...", recordType, ip)
-	err = c.createRecord(sessionCookie, authCookie, domainID, hostName, ip, recordType)
+	err = c.createRecord(domainID, hostName, ip, recordType)
 	if err != nil {
 		c.logger.Errorf("Was not able to create new record: %s ", err)
 		return err
@@ -149,28 +170,28 @@ func (c *HoverClient) updateSingleRecord(sessionCookie http.Cookie, authCookie h
 	return nil
 }
 
-func (c *HoverClient) Login(username string, password string) (*HoverAuth, error) {
+func (c *HoverClient) Login(username string, password string) error {
 	sessionCookie := http.Cookie{}
 
 	c.logger.Info("Getting Hover auth cookie...")
 	// Get session cookie
 	req, err := http.NewRequest(http.MethodGet, HoverSigninUrl, nil)
 	if err != nil {
-		return nil, errors.New("Failed to get session cookie: " + err.Error())
+		return errors.New("Failed to get session cookie: " + err.Error())
 	}
 	resp, err := c.httpClient.Do(req)
 
 	if err != nil {
-		return nil, errors.New("Failed to get session cookie: " + err.Error())
+		return errors.New("Failed to get session cookie: " + err.Error())
 	}
 	if resp.StatusCode != 200 {
-		return nil, errors.New("Failed to get session cookie: HTTP " + strconv.Itoa(resp.StatusCode))
+		return errors.New("Failed to get session cookie: HTTP " + strconv.Itoa(resp.StatusCode))
 	}
 	for _, cookie := range resp.Cookies() {
 		c.logger.Debugf("Found cookie: %s", cookie.Name)
 		if cookie.Name == "hover_session" {
-			c.logger.Debug("got session cookie")
 			sessionCookie = *cookie
+			c.logger.Debugf("got session cookie value '%s' expires '%s'", sessionCookie.Value, sessionCookie.Expires.String())
 			break
 		}
 	}
@@ -181,7 +202,7 @@ func (c *HoverClient) Login(username string, password string) (*HoverAuth, error
 
 	authReq, err := http.NewRequest(http.MethodPost, HoverAuthUrl, bytes.NewBuffer(jsonStr))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	authReq.AddCookie(&sessionCookie)
@@ -189,42 +210,40 @@ func (c *HoverClient) Login(username string, password string) (*HoverAuth, error
 
 	resp, err = c.httpClient.Do(authReq)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		c.logger.Debug(string(bodyBytes))
-		return nil, errors.New("Received status code " + strconv.Itoa(resp.StatusCode))
+		return errors.New("Received status code " + strconv.Itoa(resp.StatusCode))
 	}
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, cookie := range resp.Cookies() {
 		// Response returns two hoverauth cookies, the first having no value
 		if cookie.Name == "hoverauth" && cookie.Value != "" {
-			authCookie := *cookie
-			var auth = HoverAuth{
-				AuthCookie:    authCookie,
-				SessionCookie: sessionCookie,
-			}
-			return &auth, nil
+			c.authCookie = cookie
+			c.logger.Debugf("got auth cookie value '%s' expires '%s'", cookie.Value, cookie.Expires.String())
+			c.sessionCookie = &sessionCookie
+			return nil
 		}
 	}
 
-	return nil, errors.New("didn't receive a hoverauth cookie")
+	return errors.New("didn't receive a hoverauth cookie")
 }
 
-func (c *HoverClient) getDomainID(sessionCookie http.Cookie, authCookie http.Cookie, domainName string) (string, error) {
+func (c *HoverClient) getDomainID(domainName string) (string, error) {
 	req, err := http.NewRequest(http.MethodGet, HoverDomainsUrl, nil)
 	if err != nil {
 		return "", err
 	}
 
-	req.AddCookie(&sessionCookie)
-	req.AddCookie(&authCookie)
+	req.AddCookie(c.sessionCookie)
+	req.AddCookie(c.authCookie)
 
 	resp, err := c.httpClient.Do(req)
 
@@ -264,15 +283,15 @@ func (c *HoverClient) getDomainID(sessionCookie http.Cookie, authCookie http.Coo
 	return domainID, nil
 }
 
-func (c *HoverClient) getRecordID(sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, recordType string) (string, error) {
+func (c *HoverClient) getRecordID(domainID string, hostName string, recordType string) (string, error) {
 	recordsURL := HoverDomainsUrl + domainID + "/dns"
 	req, err := http.NewRequest(http.MethodGet, recordsURL, nil)
 	if err != nil {
 		return "", err
 	}
 
-	req.AddCookie(&sessionCookie)
-	req.AddCookie(&authCookie)
+	req.AddCookie(c.sessionCookie)
+	req.AddCookie(c.authCookie)
 
 	recordResp, err := c.httpClient.Do(req)
 
@@ -311,7 +330,7 @@ func (c *HoverClient) getRecordID(sessionCookie http.Cookie, authCookie http.Coo
 	return recordID, nil
 }
 
-func (c *HoverClient) createRecord(sessionCookie http.Cookie, authCookie http.Cookie, domainID string, hostName string, address string, recordType string) error {
+func (c *HoverClient) createRecord(domainID string, hostName string, address string, recordType string) error {
 	r := CreateRecord{
 		Content: address,
 		Name:    hostName,
@@ -332,8 +351,8 @@ func (c *HoverClient) createRecord(sessionCookie http.Cookie, authCookie http.Co
 		return err
 	}
 
-	req.AddCookie(&sessionCookie)
-	req.AddCookie(&authCookie)
+	req.AddCookie(c.sessionCookie)
+	req.AddCookie(c.authCookie)
 	req.Header.Set("Content-Type", "application/json")
 
 	recordPostResponse, err := c.httpClient.Do(req)
@@ -352,15 +371,15 @@ func (c *HoverClient) createRecord(sessionCookie http.Cookie, authCookie http.Co
 	return nil
 }
 
-func (c *HoverClient) deleteRecord(sessionCookie http.Cookie, authCookie http.Cookie, identifier string) error {
+func (c *HoverClient) deleteRecord(identifier string) error {
 	url := HoverDnsUrl + identifier
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		return err
 	}
 
-	req.AddCookie(&sessionCookie)
-	req.AddCookie(&authCookie)
+	req.AddCookie(c.sessionCookie)
+	req.AddCookie(c.authCookie)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

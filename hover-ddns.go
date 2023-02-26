@@ -140,7 +140,6 @@ func main() {
 }
 
 func run(logger *zap.Logger, config *Config, provider publicip.LookupProvider, dryRun *bool, manualV4 *string, manualV6 *string) {
-	var auth *hover.HoverAuth
 	var client *hover.HoverClient
 	var err error
 	sugaredLogger := logger.Sugar()
@@ -154,19 +153,17 @@ func run(logger *zap.Logger, config *Config, provider publicip.LookupProvider, d
 
 			if !*dryRun {
 				// Attempt hover login when the first entry that requires updating is discovered
-				if (v4 != nil || v6 != nil) && auth == nil {
+				if (v4 != nil || v6 != nil) && !client.IsAuthenticated() {
 					client = hover.NewClient(logger)
-					auth, err = client.Login(config.Username, config.Password)
+					err = client.Login(config.Username, config.Password)
 					if err != nil {
 						sugaredLogger.Error("Could not log in: ", err)
 						return
 					}
-					sugaredLogger.Debug("AuthCookie [" + auth.AuthCookie.Name + "]: " + auth.AuthCookie.Value)
-					sugaredLogger.Debug("SessionCookie [" + auth.SessionCookie.Name + "]: " + auth.SessionCookie.Value)
 				}
 
 				if !(v4 == nil && v6 == nil) {
-					err := client.Update(auth, domain.DomainName, hostName, v4, v6)
+					err := client.Update(domain.DomainName, hostName, v4, v6)
 					if err != nil {
 						sugaredLogger.Error("Was not able to update hover records: ", err)
 						return
