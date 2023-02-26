@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"strconv"
@@ -92,14 +93,6 @@ func (c *HoverClient) IsAuthenticated() bool {
 		return false
 	}
 
-	if c.sessionCookie.Expires.Before(time.Now()) {
-		return false
-	}
-
-	if c.authCookie.Expires.Before(time.Now()) {
-		return false
-	}
-
 	return true
 }
 
@@ -173,7 +166,7 @@ func (c *HoverClient) updateSingleRecord(domainID string, hostName string, ip st
 func (c *HoverClient) Login(username string, password string) error {
 	sessionCookie := http.Cookie{}
 
-	c.logger.Info("Getting Hover auth cookie...")
+	c.logger.Info("Logging in to Hover API...")
 	// Get session cookie
 	req, err := http.NewRequest(http.MethodGet, HoverSigninUrl, nil)
 	if err != nil {
@@ -184,6 +177,10 @@ func (c *HoverClient) Login(username string, password string) error {
 	if err != nil {
 		return errors.New("Failed to get session cookie: " + err.Error())
 	}
+
+	io.Copy(ioutil.Discard, resp.Body)
+	resp.Body.Close()
+
 	if resp.StatusCode != 200 {
 		return errors.New("Failed to get session cookie: HTTP " + strconv.Itoa(resp.StatusCode))
 	}
@@ -212,11 +209,10 @@ func (c *HoverClient) Login(username string, password string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	io.Copy(ioutil.Discard, resp.Body)
+	resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		c.logger.Debug(string(bodyBytes))
 		return errors.New("Received status code " + strconv.Itoa(resp.StatusCode))
 	}
 	if err != nil {
@@ -251,6 +247,8 @@ func (c *HoverClient) getDomainID(domainName string) (string, error) {
 		return "", err
 	}
 	if resp.StatusCode != http.StatusOK {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
 		return "", errors.New("Received status code " + strconv.Itoa(resp.StatusCode))
 	}
 
@@ -296,6 +294,8 @@ func (c *HoverClient) getRecordID(domainID string, hostName string, recordType s
 	recordResp, err := c.httpClient.Do(req)
 
 	if recordResp.StatusCode != http.StatusOK {
+		io.Copy(ioutil.Discard, recordResp.Body)
+		recordResp.Body.Close()
 		return "", errors.New("Received status code " + strconv.Itoa(recordResp.StatusCode))
 	}
 	if err != nil {
@@ -385,7 +385,8 @@ func (c *HoverClient) deleteRecord(identifier string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	io.Copy(ioutil.Discard, resp.Body)
+	resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return errors.New("Received status code " + strconv.Itoa(resp.StatusCode))
