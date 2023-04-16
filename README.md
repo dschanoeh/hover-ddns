@@ -4,6 +4,11 @@
 ![License](https://img.shields.io/github/license/dschanoeh/hover-ddns)
 ![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/dschanoeh/hover-ddns)
 
+
+**⚠️ hover-ddns currently doesn't work because hover is now enforcing the
+use of a second factor when logging in. See [this issue](https://github.com/dschanoeh/hover-ddns/issues/18) for more information.**
+
+
 hover-ddns is a DDNS client that will update DNS A and/or AAAA records at hover with the current public IP address(es) of the machine.
 
 This is an unofficial client using the non-supported Hover API.
